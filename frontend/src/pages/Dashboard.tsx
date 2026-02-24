@@ -24,9 +24,13 @@ import {
   Eye,
   Database,
   Server,
+  Users,
+  FileText,
 } from 'lucide-react'
 import { mockScanResult } from '../data/mockData'
 import { Card, StatCard, SeverityBadge, Button, ProgressBar } from '../components/ui'
+import { useHumanFactor } from '../hooks/useHumanFactor'
+import { useOrganizational } from '../hooks/useOrganizational'
 import { format } from 'date-fns'
 
 const score = mockScanResult.overallScore
@@ -61,9 +65,33 @@ const domainIcons: Record<string, React.ReactNode> = {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { assessment: humanAssessment } = useHumanFactor()
+  const { assessment: orgAssessment } = useOrganizational()
   const criticalFindings = mockScanResult.findings
     .filter(f => f.severity === 'critical' || f.severity === 'high')
     .slice(0, 5)
+
+  // Calculate combined NIS2 compliance score
+  const technicalScore = mockScanResult.overallScore
+  const humanScore = humanAssessment.score
+  const orgScore = orgAssessment.score
+  const hasHumanAssessment = humanAssessment.answered > 0
+  const hasOrgAssessment = orgAssessment.answered > 0
+
+  // Weight: 40% technical, 30% human, 30% organizational (if assessments exist)
+  let combinedScore = technicalScore
+  if (hasHumanAssessment && hasOrgAssessment) {
+    combinedScore = Math.round(technicalScore * 0.4 + humanScore * 0.3 + orgScore * 0.3)
+  } else if (hasHumanAssessment) {
+    combinedScore = Math.round(technicalScore * 0.6 + humanScore * 0.4)
+  } else if (hasOrgAssessment) {
+    combinedScore = Math.round(technicalScore * 0.6 + orgScore * 0.4)
+  }
+
+  const combinedColor = combinedScore >= 75 ? '#10b981' : combinedScore >= 50 ? '#f59e0b' : '#ef4444'
+  const combinedLabel = combinedScore >= 75 ? 'Compliant' : combinedScore >= 50 ? 'At Risk' : 'Non-Compliant'
+
+  const hasAllAssessments = hasHumanAssessment && hasOrgAssessment
 
   return (
     <div className="space-y-6">
@@ -83,6 +111,122 @@ export default function Dashboard() {
           Run New Scan
         </Button>
       </div>
+
+      {/* Combined NIS2 Score Banner */}
+      <Card glow className="relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl -mr-32 -mt-32" />
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <Shield size={20} className="text-cyan-400" />
+                <h2 className="text-lg font-bold font-syne text-white">
+                  Overall NIS2 Compliance Score
+                </h2>
+              </div>
+              <p className="text-sm text-navy-300 mb-4">
+                Combined assessment of technical infrastructure and organizational controls
+              </p>
+
+              {/* Score breakdown */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-3 rounded-lg bg-navy-900/60 border border-navy-700">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Radar size={14} className="text-purple-400" />
+                    <span className="text-xs text-navy-400 uppercase tracking-wider">Technical</span>
+                  </div>
+                  <div className="text-2xl font-bold font-syne text-red-400">{technicalScore}%</div>
+                  <div className="text-xs text-navy-500 mt-1">AWS Infrastructure</div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-navy-900/60 border border-navy-700">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Users size={14} className="text-emerald-400" />
+                    <span className="text-xs text-navy-400 uppercase tracking-wider">Human Factor</span>
+                  </div>
+                  <div className={`text-2xl font-bold font-syne ${hasHumanAssessment ? 'text-white' : 'text-navy-600'}`}>
+                    {hasHumanAssessment ? `${humanScore}%` : '—'}
+                  </div>
+                  <div className="text-xs text-navy-500 mt-1">
+                    {hasHumanAssessment ? 'People & Security' : (
+                      <button
+                        onClick={() => navigate('/human-factor')}
+                        className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                      >
+                        Start Assessment →
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-navy-900/60 border border-navy-700">
+                  <div className="flex items-center gap-2 mb-1">
+                    <FileText size={14} className="text-blue-400" />
+                    <span className="text-xs text-navy-400 uppercase tracking-wider">Organizational</span>
+                  </div>
+                  <div className={`text-2xl font-bold font-syne ${hasOrgAssessment ? 'text-white' : 'text-navy-600'}`}>
+                    {hasOrgAssessment ? `${orgScore}%` : '—'}
+                  </div>
+                  <div className="text-xs text-navy-500 mt-1">
+                    {hasOrgAssessment ? 'Policies & Governance' : (
+                      <button
+                        onClick={() => navigate('/organizational')}
+                        className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                      >
+                        Start Assessment →
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-gradient-to-br from-cyan-500/10 to-cyan-500/5 border border-cyan-500/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Shield size={14} className="text-cyan-400" />
+                    <span className="text-xs text-cyan-400 uppercase tracking-wider font-semibold">Combined</span>
+                  </div>
+                  <div className="text-3xl font-bold font-syne" style={{ color: combinedColor }}>
+                    {combinedScore}%
+                  </div>
+                  <div className="text-xs font-semibold mt-1" style={{ color: combinedColor }}>
+                    {combinedLabel}
+                  </div>
+                </div>
+              </div>
+
+              {!hasAllAssessments && (
+                <div className="mt-4 p-3 rounded-lg bg-yellow-500/8 border border-yellow-500/15 flex items-start gap-2">
+                  <AlertTriangle size={14} className="text-yellow-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs text-yellow-300">
+                      <strong>Incomplete Assessment:</strong> Complete {!hasHumanAssessment && !hasOrgAssessment ? 'both Human Factor and Organizational assessments' : !hasHumanAssessment ? 'the Human Factor assessment' : 'the Organizational assessment'} for full NIS2 compliance visibility
+                    </p>
+                  </div>
+                  {!hasHumanAssessment && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate('/human-factor')}
+                      className="text-yellow-400 hover:text-yellow-300"
+                    >
+                      Human Factor <ChevronRight size={12} />
+                    </Button>
+                  )}
+                  {!hasOrgAssessment && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate('/organizational')}
+                      className="text-yellow-400 hover:text-yellow-300"
+                    >
+                      Organizational <ChevronRight size={12} />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </Card>
 
       {/* Stats bar */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">

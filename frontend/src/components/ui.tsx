@@ -47,12 +47,14 @@ interface CardProps {
   children: React.ReactNode
   className?: string
   glow?: boolean
+  onClick?: () => void
 }
 
-export function Card({ children, className = '', glow = false }: CardProps) {
+export function Card({ children, className = '', glow = false, onClick }: CardProps) {
   return (
     <div
       className={`glass-card rounded-xl p-5 ${glow ? 'glow-cyan' : ''} ${className}`}
+      onClick={onClick}
     >
       {children}
     </div>
