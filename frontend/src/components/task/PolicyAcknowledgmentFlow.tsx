@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { FileText, ChevronRight, Calendar, User, CheckCircle } from 'lucide-react'
 import { MockTask } from '../../data/mockTasks'
 import { format } from 'date-fns'
@@ -6,14 +6,20 @@ import { format } from 'date-fns'
 interface PolicyAcknowledgmentFlowProps {
   task: MockTask
   onComplete: (employeeName: string) => void
+  onStepChange?: (step: number) => void
 }
 
-export default function PolicyAcknowledgmentFlow({ task, onComplete }: PolicyAcknowledgmentFlowProps) {
+export default function PolicyAcknowledgmentFlow({ task, onComplete, onStepChange }: PolicyAcknowledgmentFlowProps) {
   const [step, setStep] = useState(1)
   const [hasReadPolicy, setHasReadPolicy] = useState(false)
   const [confirmedName, setConfirmedName] = useState(task.employeeName)
 
   const totalSteps = 4
+
+  // Notify parent of step changes for progress bar
+  useEffect(() => {
+    onStepChange?.(step)
+  }, [step, onStepChange])
 
   // Step 1: Welcome
   if (step === 1) {

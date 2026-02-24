@@ -48,11 +48,13 @@ export default function EmployeeTaskPage() {
         <PolicyAcknowledgmentFlow
           task={task}
           onComplete={(name) => handleComplete({ name })}
+          onStepChange={setCurrentStep}
         />
       ) : (
         <QuizFlow
           task={task}
           onComplete={(score) => handleComplete({ score })}
+          onStepChange={setCurrentStep}
         />
       )}
     </TaskShell>

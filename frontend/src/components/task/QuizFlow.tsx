@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Brain, ChevronRight, Calendar, User, CheckCircle, AlertTriangle, Award, XCircle } from 'lucide-react'
 import { MockTask, quizQuestionsData, QuizQuestionData } from '../../data/mockTasks'
 import { format } from 'date-fns'
@@ -6,9 +6,10 @@ import { format } from 'date-fns'
 interface QuizFlowProps {
   task: MockTask
   onComplete: (score: number) => void
+  onStepChange?: (step: number) => void
 }
 
-export default function QuizFlow({ task, onComplete }: QuizFlowProps) {
+export default function QuizFlow({ task, onComplete, onStepChange }: QuizFlowProps) {
   const [step, setStep] = useState(1)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
@@ -17,6 +18,11 @@ export default function QuizFlow({ task, onComplete }: QuizFlowProps) {
   const [attempts, setAttempts] = useState(0)
 
   const totalSteps = 7 // 1 welcome + 5 questions + 1 results
+
+  // Notify parent of step changes for progress bar
+  useEffect(() => {
+    onStepChange?.(step)
+  }, [step, onStepChange])
   const passScore = 4
   const maxAttempts = 3
 

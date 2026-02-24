@@ -1,11 +1,9 @@
-import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Shield,
   AlertTriangle,
   CheckCircle,
   TrendingUp,
-  TrendingDown,
   ChevronRight,
   FileText,
   Users,
