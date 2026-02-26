@@ -15,6 +15,7 @@ import { mockScanResult } from '../data/mockData'
 
 const STORAGE_KEY = 'konforme_controls'
 const CAMPAIGNS_STORAGE_KEY = 'konforme_campaigns'
+const LAST_SAVED_KEY = 'konforme_last_saved'
 
 // Status weights for scoring
 const STATUS_WEIGHTS = {
@@ -35,11 +36,13 @@ export function useControls() {
   const [controls, setControls] = useState<Control[]>([])
   const [campaigns, setCampaigns] = useState<EmployeeCampaign[]>([])
   const [selectedControl, setSelectedControl] = useState<Control | null>(null)
+  const [lastSaved, setLastSaved] = useState<string | null>(null)
 
   // Load from localStorage on mount
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
     const storedCampaigns = localStorage.getItem(CAMPAIGNS_STORAGE_KEY)
+    const storedLastSaved = localStorage.getItem(LAST_SAVED_KEY)
 
     if (stored) {
       try {
@@ -62,18 +65,28 @@ export function useControls() {
     } else {
       setCampaigns(mockCampaigns)
     }
+
+    if (storedLastSaved) {
+      setLastSaved(storedLastSaved)
+    }
   }, [])
 
   // Save to localStorage whenever controls or campaigns change
   useEffect(() => {
     if (controls.length > 0) {
+      const timestamp = new Date().toISOString()
       localStorage.setItem(STORAGE_KEY, JSON.stringify(controls))
+      localStorage.setItem(LAST_SAVED_KEY, timestamp)
+      setLastSaved(timestamp)
     }
   }, [controls])
 
   useEffect(() => {
     if (campaigns.length > 0) {
+      const timestamp = new Date().toISOString()
       localStorage.setItem(CAMPAIGNS_STORAGE_KEY, JSON.stringify(campaigns))
+      localStorage.setItem(LAST_SAVED_KEY, timestamp)
+      setLastSaved(timestamp)
     }
   }, [campaigns])
 
@@ -378,6 +391,7 @@ export function useControls() {
     filterControls,
     getCampaignsForControl,
     allTasks,
-    employeeComplianceStats
+    employeeComplianceStats,
+    lastSaved
   }
 }

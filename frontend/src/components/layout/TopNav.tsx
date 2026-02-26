@@ -1,18 +1,25 @@
 import React from 'react'
-import { Bell, ChevronDown, Clock, RefreshCw } from 'lucide-react'
+import { Bell, ChevronDown, Clock, RefreshCw, Save } from 'lucide-react'
 import { mockScanResult } from '../../data/mockData'
-import { format } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
+import { useControls } from '../../hooks/useControls'
 
 export default function TopNav() {
-  const lastScan = format(new Date(mockScanResult.completedAt), 'MMM d, yyyy · HH:mm')
+  const { lastSaved, complianceScore } = useControls()
+
+  const lastSavedText = lastSaved
+    ? formatDistanceToNow(new Date(lastSaved), { addSuffix: true })
+    : 'Never'
+
+  const score = complianceScore.overall
 
   return (
     <header className="h-14 fixed top-0 right-0 left-60 z-30 flex items-center justify-between px-6 bg-navy-950/90 backdrop-blur-sm border-b border-navy-700/50">
       {/* Left — breadcrumb/context */}
       <div className="flex items-center gap-2 text-sm text-navy-300">
-        <Clock size={14} className="text-cyan-400" />
-        <span>Last scan:</span>
-        <span className="text-white font-medium">{lastScan}</span>
+        <Save size={14} className="text-emerald-400" />
+        <span>Saved:</span>
+        <span className="text-emerald-400 font-medium">{lastSavedText}</span>
         <span className="mx-2 text-navy-600">|</span>
         <span className="text-cyan-400 font-medium">{mockScanResult.accountName}</span>
         <span className="text-xs text-navy-500 font-mono">({mockScanResult.accountId})</span>
@@ -21,10 +28,20 @@ export default function TopNav() {
       {/* Right — actions */}
       <div className="flex items-center gap-3">
         {/* Score pill */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20">
-          <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-          <span className="text-xs font-semibold text-red-400">
-            Score: {mockScanResult.overallScore}%
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${
+          score >= 75
+            ? 'bg-emerald-500/10 border border-emerald-500/20'
+            : score >= 50
+            ? 'bg-yellow-500/10 border border-yellow-500/20'
+            : 'bg-red-500/10 border border-red-500/20'
+        }`}>
+          <div className={`w-2 h-2 rounded-full animate-pulse ${
+            score >= 75 ? 'bg-emerald-400' : score >= 50 ? 'bg-yellow-400' : 'bg-red-400'
+          }`} />
+          <span className={`text-xs font-semibold ${
+            score >= 75 ? 'text-emerald-400' : score >= 50 ? 'text-yellow-400' : 'text-red-400'
+          }`}>
+            Score: {score}%
           </span>
         </div>
 
