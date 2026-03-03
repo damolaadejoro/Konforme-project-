@@ -24,17 +24,7 @@ backend-test:
     - if: $CI_MERGE_REQUEST_IID
     - if: $CI_COMMIT_BRANCH == "Main"
 
-frontend-test:
-  stage: test
-  image: node:20-alpine
-  before_script:
-    - cd frontend
-    - npm ci
-  script:
-    - npx vitest --run
-  rules:
-    - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_BRANCH == "Main"
+# Note: Frontend tests run in konforme-frontend repo
 
 # ---------------------------------------------------------------------------
 # BUILD STAGE
@@ -56,8 +46,6 @@ backend-build:
     - docker push ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}
   rules:
     - if: $CI_COMMIT_BRANCH == "Main"
-
-# Note: Frontend is deployed via Netlify (auto-deploys from Main branch)
 
 # ---------------------------------------------------------------------------
 # DEPLOY STAGE
