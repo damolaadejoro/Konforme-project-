@@ -22,7 +22,7 @@ backend-test:
     - pytest -v
   rules:
     - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "Main"
 
 frontend-test:
   stage: test
@@ -34,7 +34,7 @@ frontend-test:
     - npx vitest --run
   rules:
     - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "Main"
 
 # ---------------------------------------------------------------------------
 # BUILD STAGE
@@ -55,7 +55,7 @@ backend-build:
     - docker build -t ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG} konforme-backend/
     - docker push ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "Main"
 
 frontend-build:
   stage: build
@@ -70,7 +70,7 @@ frontend-build:
       - frontend/dist/
     expire_in: 1 hour
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "Main"
 
 # ---------------------------------------------------------------------------
 # DEPLOY STAGE
@@ -110,7 +110,7 @@ deploy-backend:
       --force-new-deployment
     - echo "Backend deployed with image ${IMAGE_URI}"
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "Main"
 
 deploy-frontend:
   stage: deploy
@@ -123,4 +123,4 @@ deploy-frontend:
       --paths "/*"
     - echo "Frontend deployed to S3 and CloudFront invalidation created"
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "Main"
