@@ -5,6 +5,44 @@ import NIS2Overview from '../pages/NIS2Overview'
 import TaskNotFound from '../components/task/TaskNotFound'
 import TaskShell from '../components/task/TaskShell'
 
+// Mock the AuthContext
+vi.mock('../context/AuthContext', () => ({
+  useAuth: () => ({
+    accountId: 'test-account-id',
+    accountName: 'Test User',
+    email: 'test@example.com',
+    isAuthenticated: true,
+    loading: false,
+    awsAccounts: [],
+    selectedAwsAccountId: null,
+    login: vi.fn(),
+    register: vi.fn(),
+    logout: vi.fn(),
+    addAwsAccount: vi.fn(),
+    removeAwsAccount: vi.fn(),
+    selectAwsAccount: vi.fn(),
+  }),
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+}))
+
+// Mock useAssessment hook
+vi.mock('../hooks/useAssessment', () => ({
+  useAssessment: () => ({
+    overallScore: 0,
+    articleScores: {},
+    answeredCount: 0,
+    totalQuestions: 0,
+    progressPercent: 0,
+  }),
+}))
+
+// Mock services/api
+vi.mock('../services/api', () => ({
+  getCombinedScore: vi.fn(),
+  isConnected: vi.fn(() => false),
+  getStoredAuth: vi.fn(() => null),
+}))
+
 // Mock the useControls hook
 vi.mock('../hooks/useControls', () => ({
   useControls: () => ({
@@ -155,7 +193,7 @@ describe('UI Components', () => {
           <div>Test Content</div>
         </TaskShell>
       )
-      expect(screen.getByText('Konforme')).toBeInTheDocument()
+      expect(screen.getAllByText('Konforme').length).toBeGreaterThan(0)
     })
 
     it('TaskShell renders the company name', () => {

@@ -896,9 +896,9 @@ describe('Compliance Scoring Algorithm', () => {
         { id: '2', title: 'Critical Gap 2', description: 'Test', article: 'Art. 21(2)(b)', articleArea: 'Incident Response', category: 'Organizational', status: 'Partial', owner: 'John', dueDate: null, evidence: [], notes: '', isAutoPopulated: false, isPeopleControl: false, lastUpdated: new Date().toISOString(), severity: 'critical' },
         { id: '3', title: 'High Gap 1', description: 'Test', article: 'Art. 21(2)(c)', articleArea: 'Business Continuity', category: 'People', status: 'Not Started', owner: '', dueDate: null, evidence: [], notes: '', isAutoPopulated: false, isPeopleControl: true, lastUpdated: new Date().toISOString(), severity: 'high' },
         { id: '4', title: 'High Gap 2', description: 'Test', article: 'Art. 21(2)(d)', articleArea: 'Supply Chain', category: 'Technical', status: 'Partial', owner: 'Jane', dueDate: null, evidence: [], notes: '', isAutoPopulated: false, isPeopleControl: false, lastUpdated: new Date().toISOString(), severity: 'high' },
-        { id: '5', title: 'Medium Gap 1', description: 'Test', article: 'Art. 21(2)(e)', articleArea: 'Access Control', category: 'Organizational', status: 'Not Started', owner: '', dueDate: null, evidence: [], notes: '', isAutoPopulated: false, isPeopleControl: false, lastUpdated: new Date().toISOString(), severity: 'medium' },
+        { id: '5', title: 'High Gap 3', description: 'Test', article: 'Art. 21(2)(e)', articleArea: 'Access Control', category: 'Organizational', status: 'Not Started', owner: '', dueDate: null, evidence: [], notes: '', isAutoPopulated: false, isPeopleControl: false, lastUpdated: new Date().toISOString(), severity: 'high' },
         { id: '6', title: 'Implemented Control', description: 'Test', article: 'Art. 21(2)(f)', articleArea: 'Encryption', category: 'Technical', status: 'Implemented', owner: 'Bob', dueDate: null, evidence: [], notes: '', isAutoPopulated: false, isPeopleControl: false, lastUpdated: new Date().toISOString(), severity: 'critical' },
-        { id: '7', title: 'Medium Gap 2', description: 'Test', article: 'Art. 21(2)(g)', articleArea: 'Monitoring', category: 'People', status: 'Partial', owner: 'Alice', dueDate: null, evidence: [], notes: '', isAutoPopulated: false, isPeopleControl: true, lastUpdated: new Date().toISOString(), severity: 'medium' }
+        { id: '7', title: 'Critical Gap 3', description: 'Test', article: 'Art. 21(2)(g)', articleArea: 'Monitoring', category: 'People', status: 'Partial', owner: 'Alice', dueDate: null, evidence: [], notes: '', isAutoPopulated: false, isPeopleControl: true, lastUpdated: new Date().toISOString(), severity: 'critical' }
       ]
 
       localStorage.getItem.mockImplementation((key: string) => {
@@ -930,10 +930,10 @@ describe('Compliance Scoring Algorithm', () => {
       expect(result.current.criticalGaps[1].severity).toBe('high')
     })
 
-    it('High severity gaps appear before Medium severity gaps', () => {
+    it('High severity gaps appear after Critical severity gaps', () => {
       const mockControls: Control[] = [
-        { id: '1', title: 'Medium Gap', description: 'Test', article: 'Art. 21(2)(a)', articleArea: 'Risk Management', category: 'Technical', status: 'Not Started', owner: '', dueDate: null, evidence: [], notes: '', isAutoPopulated: false, isPeopleControl: false, lastUpdated: new Date().toISOString(), severity: 'medium' },
-        { id: '2', title: 'High Gap', description: 'Test', article: 'Art. 21(2)(b)', articleArea: 'Incident Response', category: 'Organizational', status: 'Not Started', owner: '', dueDate: null, evidence: [], notes: '', isAutoPopulated: false, isPeopleControl: false, lastUpdated: new Date().toISOString(), severity: 'high' }
+        { id: '1', title: 'High Gap', description: 'Test', article: 'Art. 21(2)(a)', articleArea: 'Risk Management', category: 'Technical', status: 'Not Started', owner: '', dueDate: null, evidence: [], notes: '', isAutoPopulated: false, isPeopleControl: false, lastUpdated: new Date().toISOString(), severity: 'high' },
+        { id: '2', title: 'Critical Gap', description: 'Test', article: 'Art. 21(2)(b)', articleArea: 'Incident Response', category: 'Organizational', status: 'Not Started', owner: '', dueDate: null, evidence: [], notes: '', isAutoPopulated: false, isPeopleControl: false, lastUpdated: new Date().toISOString(), severity: 'critical' }
       ]
 
       localStorage.getItem.mockImplementation((key: string) => {
@@ -943,8 +943,8 @@ describe('Compliance Scoring Algorithm', () => {
       })
 
       const { result } = renderHook(() => useControls())
-      expect(result.current.criticalGaps[0].severity).toBe('high')
-      expect(result.current.criticalGaps[1].severity).toBe('medium')
+      expect(result.current.criticalGaps[0].severity).toBe('critical')
+      expect(result.current.criticalGaps[1].severity).toBe('high')
     })
 
     it('If fewer than 5 gaps exist only those gaps are returned', () => {

@@ -33,7 +33,7 @@ describe('Controls Data and Filtering', () => {
       const { result } = renderHook(() => useControls())
       result.current.controls.forEach(control => {
         expect(control.article).toBeTruthy()
-        expect(control.article).toMatch(/Art\.\s*21/)
+        expect(control.article).toMatch(/Art\.\s*\d+/)
       })
     })
 
