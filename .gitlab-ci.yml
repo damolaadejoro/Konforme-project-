@@ -1,11 +1,13 @@
 stages:
   - test
+  - infra
   - build
   - deploy
 
 variables:
   ECR_REGISTRY: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
   IMAGE_TAG: ${CI_COMMIT_SHORT_SHA}
+  TF_DIR: infrastructure/terraform
 
 # ---------------------------------------------------------------------------
 # TEST STAGE
@@ -37,6 +39,47 @@ frontend-test:
     - if: $CI_COMMIT_BRANCH == "Main"
 
 # ---------------------------------------------------------------------------
+# INFRASTRUCTURE STAGE
+# ---------------------------------------------------------------------------
+
+.terraform-base:
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint: [""]
+  before_script:
+    - cd ${TF_DIR}
+    - terraform init -input=false
+
+# Plan on merge requests — shows what would change
+terraform-plan:
+  extends: .terraform-base
+  stage: infra
+  script:
+    - terraform validate
+    - terraform plan -input=false -out=plan.cache
+  artifacts:
+    paths:
+      - ${TF_DIR}/plan.cache
+    expire_in: 1 hour
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+      changes:
+        - infrastructure/**/*
+
+# Apply on Main — provisions/updates real infrastructure
+terraform-apply:
+  extends: .terraform-base
+  stage: infra
+  script:
+    - terraform validate
+    - terraform plan -input=false -out=plan.cache
+    - terraform apply -input=false -auto-approve plan.cache
+  rules:
+    - if: $CI_COMMIT_BRANCH == "Main"
+      changes:
+        - infrastructure/**/*
+
+# ---------------------------------------------------------------------------
 # BUILD STAGE
 # ---------------------------------------------------------------------------
 
@@ -57,20 +100,7 @@ backend-build:
   rules:
     - if: $CI_COMMIT_BRANCH == "Main"
 
-frontend-build:
-  stage: build
-  image: node:20-alpine
-  before_script:
-    - cd frontend
-    - npm ci
-  script:
-    - VITE_API_URL=${VITE_API_URL} npm run build
-  artifacts:
-    paths:
-      - frontend/dist/
-    expire_in: 1 hour
-  rules:
-    - if: $CI_COMMIT_BRANCH == "Main"
+# Note: Frontend is deployed via Netlify (auto-deploys from Main branch)
 
 # ---------------------------------------------------------------------------
 # DEPLOY STAGE
@@ -78,49 +108,19 @@ frontend-build:
 
 deploy-backend:
   stage: deploy
-  image: amazon/aws-cli:latest
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client bash curl
+    - eval $(ssh-agent -s)
+    - echo "$EC2_SSH_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
   script:
-    - IMAGE_URI="${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
     - >
-      TASK_DEF=$(aws ecs describe-services
-      --cluster ${ECS_CLUSTER}
-      --services ${ECS_SERVICE}
-      --query "services[0].taskDefinition"
-      --output text)
-    - >
-      NEW_TASK_DEF=$(aws ecs describe-task-definition
-      --task-definition ${TASK_DEF}
-      --query "taskDefinition.containerDefinitions"
-      --output json
-      | sed "s|${ECR_REGISTRY}/${ECR_REPO_NAME}:[^\"]*|${IMAGE_URI}|g")
-    - >
-      aws ecs register-task-definition
-      --family $(echo ${TASK_DEF} | rev | cut -d: -f2- | rev | xargs -I{} basename {})
-      --container-definitions "${NEW_TASK_DEF}"
-      --requires-compatibilities FARGATE
-      --network-mode awsvpc
-      --execution-role-arn $(aws ecs describe-task-definition --task-definition ${TASK_DEF} --query "taskDefinition.executionRoleArn" --output text)
-      --task-role-arn $(aws ecs describe-task-definition --task-definition ${TASK_DEF} --query "taskDefinition.taskRoleArn" --output text)
-      --cpu $(aws ecs describe-task-definition --task-definition ${TASK_DEF} --query "taskDefinition.cpu" --output text)
-      --memory $(aws ecs describe-task-definition --task-definition ${TASK_DEF} --query "taskDefinition.memory" --output text)
-    - >
-      aws ecs update-service
-      --cluster ${ECS_CLUSTER}
-      --service ${ECS_SERVICE}
-      --force-new-deployment
-    - echo "Backend deployed with image ${IMAGE_URI}"
-  rules:
-    - if: $CI_COMMIT_BRANCH == "Main"
-
-deploy-frontend:
-  stage: deploy
-  image: amazon/aws-cli:latest
-  script:
-    - aws s3 sync frontend/dist/ s3://${S3_BUCKET}/ --delete
-    - >
-      aws cloudfront create-invalidation
-      --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID}
-      --paths "/*"
-    - echo "Frontend deployed to S3 and CloudFront invalidation created"
+      bash infrastructure/scripts/deploy.sh
+      "$EC2_HOST"
+      "$EC2_USER"
+      "${ECR_REGISTRY}/${ECR_REPO_NAME}"
+      "${IMAGE_TAG}"
+      "${AWS_DEFAULT_REGION}"
   rules:
     - if: $CI_COMMIT_BRANCH == "Main"
