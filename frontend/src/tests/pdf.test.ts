@@ -3,35 +3,38 @@ import { generateComplianceReport } from '../utils/generatePDF'
 import { Control, ComplianceScore, ArticleArea } from '../types/controls'
 
 // Mock jsPDF
-vi.mock('jspdf', () => {
-  const mockDoc = {
-    setFillColor: vi.fn(),
-    setTextColor: vi.fn(),
-    setFontSize: vi.fn(),
-    setFont: vi.fn(),
-    setDrawColor: vi.fn(),
-    setLineWidth: vi.fn(),
-    rect: vi.fn(),
-    circle: vi.fn(),
-    roundedRect: vi.fn(),
-    line: vi.fn(),
-    text: vi.fn(),
-    splitTextToSize: vi.fn((text: string) => [text]),
-    addPage: vi.fn(),
-    save: vi.fn(),
-    internal: {
-      pageSize: {
-        width: 210,
-        height: 297
-      }
-    },
-    lastAutoTable: {
-      finalY: 100
+const mockDoc = {
+  setFillColor: vi.fn(),
+  setTextColor: vi.fn(),
+  setFontSize: vi.fn(),
+  setFont: vi.fn(),
+  setDrawColor: vi.fn(),
+  setLineWidth: vi.fn(),
+  rect: vi.fn(),
+  circle: vi.fn(),
+  roundedRect: vi.fn(),
+  line: vi.fn(),
+  text: vi.fn(),
+  splitTextToSize: vi.fn((text: string) => [text]),
+  addPage: vi.fn(),
+  save: vi.fn(),
+  internal: {
+    pageSize: {
+      width: 210,
+      height: 297
     }
+  },
+  lastAutoTable: {
+    finalY: 100
   }
+}
 
-  const MockJsPDF = vi.fn(() => mockDoc)
+vi.mock('jspdf', () => {
+  const MockJsPDF = vi.fn().mockImplementation(function () {
+    return mockDoc
+  })
   return {
+    __esModule: true,
     default: MockJsPDF,
     jsPDF: MockJsPDF,
   }
