@@ -62,12 +62,12 @@ def decode_refresh_token(token: str) -> str:
 
 
 def _extract_token(request: Request, credentials: HTTPAuthorizationCredentials | None) -> str | None:
-    """Extract access token from cookie first, then fall back to Authorization header."""
+    """Extract access token from Authorization header first, then fall back to cookie."""
+    if credentials:
+        return credentials.credentials
     token = request.cookies.get("access_token")
     if token:
         return token
-    if credentials:
-        return credentials.credentials
     return None
 
 

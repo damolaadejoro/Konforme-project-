@@ -172,9 +172,7 @@ class TestAccountIsolation:
             f"/api/v1/score/{account2_id}",
             headers={"Authorization": f"Bearer {token1}"},
         )
-        # TODO: enforce_account_access should return 403 here.
-        # Currently returns 200 — this is a known bug to investigate.
-        assert res.status_code in (403, 200)
+        assert res.status_code == 403
 
 
 # ── Health check (public) ────────────────────────────────────────────────────
