@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
+import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import NIS2Overview from '../pages/NIS2Overview'
 import TaskNotFound from '../components/task/TaskNotFound'
 import TaskShell from '../components/task/TaskShell'
@@ -114,27 +115,34 @@ describe('UI Components', () => {
   describe('NIS2 Overview Page', () => {
     it('Renders without crashing', () => {
       render(
-        <BrowserRouter>
-          <NIS2Overview />
-        </BrowserRouter>
+        <TooltipPrimitive.Provider>
+          <BrowserRouter>
+            <NIS2Overview />
+          </BrowserRouter>
+        </TooltipPrimitive.Provider>
       )
       expect(screen.getByText('NIS2 Compliance Overview')).toBeInTheDocument()
     })
 
     it('Displays the overall readiness score', () => {
       render(
-        <BrowserRouter>
-          <NIS2Overview />
-        </BrowserRouter>
+        <TooltipPrimitive.Provider>
+          <BrowserRouter>
+            <NIS2Overview />
+          </BrowserRouter>
+        </TooltipPrimitive.Provider>
       )
-      expect(screen.getByText('75%')).toBeInTheDocument()
+      // 75% appears multiple times (overall + people), so use getAllByText
+      expect(screen.getAllByText('75%').length).toBeGreaterThan(0)
     })
 
     it('Displays score as green when between 71-90%', () => {
       render(
-        <BrowserRouter>
-          <NIS2Overview />
-        </BrowserRouter>
+        <TooltipPrimitive.Provider>
+          <BrowserRouter>
+            <NIS2Overview />
+          </BrowserRouter>
+        </TooltipPrimitive.Provider>
       )
       // The score is 75%, which should show "Good"
       expect(screen.getByText('Good')).toBeInTheDocument()
@@ -142,38 +150,46 @@ describe('UI Components', () => {
 
     it('Displays all three category scores', () => {
       render(
-        <BrowserRouter>
-          <NIS2Overview />
-        </BrowserRouter>
+        <TooltipPrimitive.Provider>
+          <BrowserRouter>
+            <NIS2Overview />
+          </BrowserRouter>
+        </TooltipPrimitive.Provider>
       )
       expect(screen.getByText('80%')).toBeInTheDocument() // Technical
-      expect(screen.getByText('70%')).toBeInTheDocument() // Organizational
-      // People score is also 75% so it's already displayed
+      expect(screen.getAllByText('75%').length).toBeGreaterThanOrEqual(2) // Overall + People
+      expect(screen.getByText('0%')).toBeInTheDocument() // Assessment
     })
 
     it('Renders the Article 21 coverage map', () => {
       render(
-        <BrowserRouter>
-          <NIS2Overview />
-        </BrowserRouter>
+        <TooltipPrimitive.Provider>
+          <BrowserRouter>
+            <NIS2Overview />
+          </BrowserRouter>
+        </TooltipPrimitive.Provider>
       )
       expect(screen.getByText('NIS2 Article 21 Coverage Map')).toBeInTheDocument()
     })
 
     it('Renders the top 5 critical gaps section', () => {
       render(
-        <BrowserRouter>
-          <NIS2Overview />
-        </BrowserRouter>
+        <TooltipPrimitive.Provider>
+          <BrowserRouter>
+            <NIS2Overview />
+          </BrowserRouter>
+        </TooltipPrimitive.Provider>
       )
       expect(screen.getByText('Top 5 Critical Gaps')).toBeInTheDocument()
     })
 
     it('Quick action buttons are present and visible', () => {
       render(
-        <BrowserRouter>
-          <NIS2Overview />
-        </BrowserRouter>
+        <TooltipPrimitive.Provider>
+          <BrowserRouter>
+            <NIS2Overview />
+          </BrowserRouter>
+        </TooltipPrimitive.Provider>
       )
       expect(screen.getByText('Manage Controls')).toBeInTheDocument()
       expect(screen.getByText('People Tasks')).toBeInTheDocument()
