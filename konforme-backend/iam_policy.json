@@ -1,0 +1,33 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "KonformeReadOnlyAccess",
+      "Effect": "Allow",
+      "Action": [
+        "cloudtrail:DescribeTrails",
+        "cloudtrail:GetTrailStatus",
+        "iam:GetAccountSummary",
+        "iam:ListUsers",
+        "iam:ListAccessKeys",
+        "iam:GetLoginProfile",
+        "iam:ListMFADevices",
+        "s3:ListAllMyBuckets",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetBucketEncryption",
+        "s3:GetBucketVersioning",
+        "guardduty:ListDetectors",
+        "guardduty:GetDetector",
+        "securityhub:DescribeHub",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeFlowLogs",
+        "ec2:GetEbsEncryptionByDefault",
+        "kms:ListKeys",
+        "kms:DescribeKey",
+        "kms:GetKeyRotationStatus"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

@@ -10,8 +10,18 @@ import {
   TaskType,
   TaskStatus
 } from '../types/controls'
-import { controls as initialControls, mockCampaigns } from '../data/controlsData'
+import { controls as templateControls, mockCampaigns } from '../data/controlsData'
 import { mockScanResult } from '../data/mockData'
+
+// Fresh controls for new users: all statuses reset to "Not Started", no pre-filled data
+const freshControls: Control[] = templateControls.map(c => ({
+  ...c,
+  status: 'Not Started' as ControlStatus,
+  owner: '',
+  evidence: [],
+  notes: '',
+  lastUpdated: new Date().toISOString(),
+}))
 
 const STORAGE_KEY = 'konforme_controls'
 const CAMPAIGNS_STORAGE_KEY = 'konforme_campaigns'
@@ -49,10 +59,10 @@ export function useControls() {
         setControls(JSON.parse(stored))
       } catch (e) {
         console.error('Failed to load controls', e)
-        setControls(initialControls)
+        setControls(freshControls)
       }
     } else {
-      setControls(initialControls)
+      setControls(freshControls)
     }
 
     if (storedCampaigns) {
@@ -60,10 +70,10 @@ export function useControls() {
         setCampaigns(JSON.parse(storedCampaigns))
       } catch (e) {
         console.error('Failed to load campaigns', e)
-        setCampaigns(mockCampaigns)
+        setCampaigns([])
       }
     } else {
-      setCampaigns(mockCampaigns)
+      setCampaigns([])
     }
 
     if (storedLastSaved) {

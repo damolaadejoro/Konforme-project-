@@ -17,7 +17,7 @@ import {
   Clock
 } from 'lucide-react'
 import { useControls } from '../hooks/useControls'
-import { Card, Button, Select, Input, SeverityBadge } from '../components/ui'
+import { Card, Button, Select, Input, SeverityBadge, InfoTooltip, Tooltip } from '../components/ui'
 import { Control, ControlCategory, ControlStatus } from '../types/controls'
 import { format } from 'date-fns'
 
@@ -580,7 +580,10 @@ export default function ControlsLibrary() {
       {/* Page Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-[26px] font-bold font-syne text-white">Controls Library</h1>
+          <h1 className="text-[26px] font-bold font-syne text-white flex items-center gap-2">
+            Controls Library
+            <InfoTooltip content="The full set of NIS2 Article 21 controls. Track status, assign owners, upload evidence, and manage employee tasks." />
+          </h1>
           <p className="text-[14px] text-[#CBD8E8] mt-1">
             Manage all NIS2 Article 21 controls and evidence
           </p>
@@ -610,7 +613,10 @@ export default function ControlsLibrary() {
           {/* Filter row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="text-xs text-[#94b4d1] mb-1 block">Category</label>
+              <label className="text-xs text-[#94b4d1] mb-1 flex items-center gap-1">
+                Category
+                <InfoTooltip content="Technical = infrastructure/system controls, Organizational = policy/process controls, People = training/human controls" size={12} />
+              </label>
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value as ControlCategory | '')}
@@ -624,7 +630,10 @@ export default function ControlsLibrary() {
             </div>
 
             <div>
-              <label className="text-xs text-[#94b4d1] mb-1 block">Status</label>
+              <label className="text-xs text-[#94b4d1] mb-1 flex items-center gap-1">
+                Status
+                <InfoTooltip content="Not Started → Planned → Partial → Implemented" size={12} />
+              </label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as ControlStatus | '')}
@@ -736,14 +745,18 @@ export default function ControlsLibrary() {
                       {control.title}
                     </h3>
                     {control.isAutoPopulated && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 flex-shrink-0">
-                        Auto
-                      </span>
+                      <Tooltip content="Status auto-updated from AWS infrastructure scans">
+                        <span className="text-xs px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 flex-shrink-0">
+                          Auto
+                        </span>
+                      </Tooltip>
                     )}
                     {control.isPeopleControl && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0">
-                        People
-                      </span>
+                      <Tooltip content="Requires human action — assign to employees as training or policy tasks">
+                        <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0">
+                          People
+                        </span>
+                      </Tooltip>
                     )}
                   </div>
 

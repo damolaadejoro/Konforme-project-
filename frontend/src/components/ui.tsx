@@ -1,5 +1,53 @@
 import React from 'react'
+import * as TooltipPrimitive from '@radix-ui/react-tooltip'
+import { HelpCircle } from 'lucide-react'
 import { Severity } from '../types'
+
+// Tooltip
+interface TooltipProps {
+  content: React.ReactNode
+  children: React.ReactNode
+  side?: 'top' | 'right' | 'bottom' | 'left'
+  delayDuration?: number
+}
+
+export function Tooltip({ content, children, side = 'top', delayDuration }: TooltipProps) {
+  return (
+    <TooltipPrimitive.Root delayDuration={delayDuration}>
+      <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
+      <TooltipPrimitive.Portal>
+        <TooltipPrimitive.Content
+          side={side}
+          sideOffset={6}
+          className="z-[100] max-w-xs rounded-lg glass-card px-3 py-2 text-[13px] text-[#CBD8E8] shadow-xl animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+        >
+          {content}
+          <TooltipPrimitive.Arrow className="fill-[#1a2744]" />
+        </TooltipPrimitive.Content>
+      </TooltipPrimitive.Portal>
+    </TooltipPrimitive.Root>
+  )
+}
+
+// InfoTooltip — small ? icon that shows a tooltip on hover
+interface InfoTooltipProps {
+  content: string
+  size?: number
+  className?: string
+  side?: 'top' | 'right' | 'bottom' | 'left'
+}
+
+export function InfoTooltip({ content, size = 14, className = '', side = 'top' }: InfoTooltipProps) {
+  return (
+    <Tooltip content={content} side={side}>
+      <button type="button" className={`inline-flex items-center text-navy-400 hover:text-navy-200 transition-colors ${className}`}>
+        <HelpCircle size={size} />
+      </button>
+    </Tooltip>
+  )
+}
+
+export { TooltipPrimitive }
 
 // Severity Badge
 export function SeverityBadge({ severity }: { severity: Severity }) {
@@ -69,13 +117,17 @@ interface StatCardProps {
   accent?: string
   trend?: string
   trendUp?: boolean
+  tooltip?: string
 }
 
-export function StatCard({ label, value, icon, accent, trend }: StatCardProps) {
+export function StatCard({ label, value, icon, accent, trend, tooltip }: StatCardProps) {
   return (
     <div className="glass-card rounded-xl p-5 flex items-start justify-between">
       <div>
-        <p className="text-xs text-navy-300 font-medium uppercase tracking-wider mb-1">{label}</p>
+        <p className="text-xs text-navy-300 font-medium uppercase tracking-wider mb-1 flex items-center gap-1">
+          {label}
+          {tooltip && <InfoTooltip content={tooltip} size={12} />}
+        </p>
         <p className={`text-2xl font-bold font-syne ${accent || 'text-white'}`}>{value}</p>
         {trend && <p className="text-xs text-navy-400 mt-1">{trend}</p>}
       </div>

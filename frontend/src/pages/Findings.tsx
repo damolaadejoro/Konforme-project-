@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
+  Info,
   ExternalLink,
   ChevronRight,
   BookOpen,
@@ -30,6 +31,7 @@ const STATUS_OPTIONS = [
   { value: 'all', label: 'All Status' },
   { value: 'fail', label: 'Failed' },
   { value: 'pass', label: 'Passed' },
+  { value: 'info', label: 'Not Applicable' },
   { value: 'review', label: 'Review' },
 ]
 
@@ -53,6 +55,10 @@ function FindingRow({ finding, expanded, onToggle }: {
           <div className="flex items-center gap-2">
             {finding.status === 'pass' ? (
               <CheckCircle size={13} className="text-emerald-400 flex-shrink-0" />
+            ) : finding.status === 'info' ? (
+              <Info size={13} className="text-sky-400 flex-shrink-0" />
+            ) : finding.status === 'review' ? (
+              <AlertTriangle size={13} className="text-amber-400 flex-shrink-0" />
             ) : (
               <XCircle size={13} className="text-red-400 flex-shrink-0" />
             )}

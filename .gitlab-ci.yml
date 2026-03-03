@@ -1,0 +1,126 @@
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  ECR_REGISTRY: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
+  IMAGE_TAG: ${CI_COMMIT_SHORT_SHA}
+
+# ---------------------------------------------------------------------------
+# TEST STAGE
+# ---------------------------------------------------------------------------
+
+backend-test:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+    - cd konforme-backend
+    - pip install --no-cache-dir -r requirements.txt
+    - pip install --no-cache-dir pytest httpx
+  script:
+    - pytest -v
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH == "main"
+
+frontend-test:
+  stage: test
+  image: node:20-alpine
+  before_script:
+    - cd frontend
+    - npm ci
+  script:
+    - npx vitest --run
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ---------------------------------------------------------------------------
+# BUILD STAGE
+# ---------------------------------------------------------------------------
+
+backend-build:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - apk add --no-cache aws-cli
+    - aws ecr get-login-password --region ${AWS_DEFAULT_REGION}
+      | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+  script:
+    - docker build -t ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG} konforme-backend/
+    - docker push ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+frontend-build:
+  stage: build
+  image: node:20-alpine
+  before_script:
+    - cd frontend
+    - npm ci
+  script:
+    - VITE_API_URL=${VITE_API_URL} npm run build
+  artifacts:
+    paths:
+      - frontend/dist/
+    expire_in: 1 hour
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ---------------------------------------------------------------------------
+# DEPLOY STAGE
+# ---------------------------------------------------------------------------
+
+deploy-backend:
+  stage: deploy
+  image: amazon/aws-cli:latest
+  script:
+    - IMAGE_URI="${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+    - >
+      TASK_DEF=$(aws ecs describe-services
+      --cluster ${ECS_CLUSTER}
+      --services ${ECS_SERVICE}
+      --query "services[0].taskDefinition"
+      --output text)
+    - >
+      NEW_TASK_DEF=$(aws ecs describe-task-definition
+      --task-definition ${TASK_DEF}
+      --query "taskDefinition.containerDefinitions"
+      --output json
+      | sed "s|${ECR_REGISTRY}/${ECR_REPO_NAME}:[^\"]*|${IMAGE_URI}|g")
+    - >
+      aws ecs register-task-definition
+      --family $(echo ${TASK_DEF} | rev | cut -d: -f2- | rev | xargs -I{} basename {})
+      --container-definitions "${NEW_TASK_DEF}"
+      --requires-compatibilities FARGATE
+      --network-mode awsvpc
+      --execution-role-arn $(aws ecs describe-task-definition --task-definition ${TASK_DEF} --query "taskDefinition.executionRoleArn" --output text)
+      --task-role-arn $(aws ecs describe-task-definition --task-definition ${TASK_DEF} --query "taskDefinition.taskRoleArn" --output text)
+      --cpu $(aws ecs describe-task-definition --task-definition ${TASK_DEF} --query "taskDefinition.cpu" --output text)
+      --memory $(aws ecs describe-task-definition --task-definition ${TASK_DEF} --query "taskDefinition.memory" --output text)
+    - >
+      aws ecs update-service
+      --cluster ${ECS_CLUSTER}
+      --service ${ECS_SERVICE}
+      --force-new-deployment
+    - echo "Backend deployed with image ${IMAGE_URI}"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+deploy-frontend:
+  stage: deploy
+  image: amazon/aws-cli:latest
+  script:
+    - aws s3 sync frontend/dist/ s3://${S3_BUCKET}/ --delete
+    - >
+      aws cloudfront create-invalidation
+      --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID}
+      --paths "/*"
+    - echo "Frontend deployed to S3 and CloudFront invalidation created"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"

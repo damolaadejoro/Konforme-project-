@@ -1,0 +1,108 @@
+import boto3
+from botocore.exceptions import ClientError
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from audit import log_aws_account_added, log_aws_account_removed
+from auth import get_current_account
+from encryption import encrypt_value
+from database import get_db
+from models import Account, AwsAccount
+from schemas import (
+    AccountResponse,
+    AddAwsAccountRequest,
+    AwsAccountResponse,
+)
+
+router = APIRouter()
+
+
+def _validate_aws_creds(access_key: str, secret_key: str, session_token: str | None, region: str) -> str:
+    """Validate AWS credentials via STS and return the AWS account ID."""
+    try:
+        session = boto3.Session(
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            aws_session_token=session_token,
+            region_name=region,
+        )
+        sts = session.client("sts")
+        identity = sts.get_caller_identity()
+        return identity["Account"]
+    except ClientError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid AWS credentials: {e.response['Error']['Message']}",
+        )
+
+
+def _aws_account_to_response(aws_acc: AwsAccount) -> AwsAccountResponse:
+    return AwsAccountResponse(
+        id=aws_acc.id,
+        alias=aws_acc.alias,
+        aws_account_id=aws_acc.aws_account_id,
+        aws_region=aws_acc.aws_region,
+        is_active=aws_acc.is_active,
+        added_at=aws_acc.added_at,
+    )
+
+
+@router.get("/accounts", response_model=AccountResponse)
+def get_account(account: Account = Depends(get_current_account), db: Session = Depends(get_db)):
+    active_aws = [a for a in account.aws_accounts if a.is_active]
+    return AccountResponse(
+        id=account.id,
+        name=account.name,
+        is_active=account.is_active,
+        connected_at=account.connected_at,
+        aws_accounts=[_aws_account_to_response(a) for a in active_aws],
+    )
+
+
+@router.post("/accounts/aws-accounts", response_model=AwsAccountResponse)
+def add_aws_account(
+    req: AddAwsAccountRequest,
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    aws_account_id = _validate_aws_creds(
+        req.aws_access_key_id, req.aws_secret_access_key, req.aws_session_token, req.region
+    )
+
+    aws_acc = AwsAccount(
+        account_id=account.id,
+        alias=req.alias,
+        aws_access_key_id=encrypt_value(req.aws_access_key_id),
+        aws_secret_access_key=encrypt_value(req.aws_secret_access_key),
+        aws_session_token=encrypt_value(req.aws_session_token) if req.aws_session_token else None,
+        aws_region=req.region,
+        aws_account_id=aws_account_id,
+    )
+    db.add(aws_acc)
+    db.commit()
+    db.refresh(aws_acc)
+
+    log_aws_account_added(account.id, aws_account_id, req.alias)
+
+    return _aws_account_to_response(aws_acc)
+
+
+@router.delete("/accounts/aws-accounts/{aws_account_id}")
+def remove_aws_account(
+    aws_account_id: str,
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    aws_acc = db.query(AwsAccount).filter(
+        AwsAccount.id == aws_account_id,
+        AwsAccount.account_id == account.id,
+    ).first()
+    if not aws_acc:
+        raise HTTPException(status_code=404, detail="AWS account not found")
+
+    aws_acc.is_active = False
+    db.commit()
+
+    log_aws_account_removed(account.id, aws_acc.aws_account_id, aws_acc.alias)
+
+    return {"detail": "AWS account deactivated"}

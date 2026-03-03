@@ -7,6 +7,12 @@ import {
   CategoryScore,
 } from '../types/humanFactor'
 import { humanFactorQuestions, recommendations } from '../data/humanFactorQuestions'
+import {
+  submitAssessment,
+  getAssessment,
+  getStoredAuth,
+  isConnected,
+} from '../services/api'
 
 const STORAGE_KEY = 'konforme_human_factor_assessment'
 
@@ -30,7 +36,6 @@ function calculateScore(answers: Record<string, QuestionAnswer>): number {
     } else if (response === 'partial') {
       earnedWeight += weight * 0.5
     }
-    // 'no' earns 0
   })
 
   return totalWeight === 0 ? 0 : Math.round((earnedWeight / totalWeight) * 100)
@@ -54,7 +59,6 @@ function identifyGaps(answers: Record<string, QuestionAnswer>): HumanFactorGap[]
     }
   })
 
-  // Sort by severity
   const severityOrder = { critical: 0, high: 1, medium: 2 }
   gaps.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity])
 
@@ -64,6 +68,7 @@ function identifyGaps(answers: Record<string, QuestionAnswer>): HumanFactorGap[]
 export function useHumanFactor() {
   const [answers, setAnswers] = useState<Record<string, QuestionAnswer>>({})
   const [isComplete, setIsComplete] = useState(false)
+  const [backendScore, setBackendScore] = useState<number | null>(null)
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -107,13 +112,35 @@ export function useHumanFactor() {
     }))
   }
 
-  const completeAssessment = () => {
+  const completeAssessment = async () => {
     setIsComplete(true)
+
+    // Submit to backend if connected
+    if (isConnected()) {
+      const { accountId } = getStoredAuth()
+      if (accountId) {
+        try {
+          const responses = humanFactorQuestions.map(q => {
+            const answer = answers[q.id]
+            return {
+              question_id: q.id,
+              response: answer?.response || 'no',
+              notes: answer?.notes || '',
+            }
+          })
+          const result = await submitAssessment(accountId, responses)
+          setBackendScore(result.score)
+        } catch (err) {
+          console.error('Failed to submit assessment to backend:', err)
+        }
+      }
+    }
   }
 
   const resetAssessment = () => {
     setAnswers({})
     setIsComplete(false)
+    setBackendScore(null)
     localStorage.removeItem(STORAGE_KEY)
   }
 
@@ -122,14 +149,14 @@ export function useHumanFactor() {
       id: 'hf-assessment-001',
       completedAt: isComplete ? new Date().toISOString() : null,
       answers,
-      score: calculateScore(answers),
+      score: backendScore ?? calculateScore(answers),
       totalQuestions: humanFactorQuestions.length,
       answered: Object.keys(answers).filter(
         k => answers[k].response !== null
       ).length,
       gaps: identifyGaps(answers),
     }
-  }, [answers, isComplete])
+  }, [answers, isComplete, backendScore])
 
   const categoryScores: CategoryScore[] = useMemo(() => {
     const categories = Array.from(new Set(humanFactorQuestions.map(q => q.category)))

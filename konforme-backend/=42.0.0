@@ -1,0 +1,6 @@
+Requirement already satisfied: cryptography in /Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages (45.0.6)
+Requirement already satisfied: cffi>=1.14 in /Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages (from cryptography) (1.17.1)
+Requirement already satisfied: pycparser in /Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages (from cffi>=1.14->cryptography) (2.22)
+
+[notice] A new release of pip available: 22.3 -> 26.0.1
+[notice] To update, run: pip3 install --upgrade pip

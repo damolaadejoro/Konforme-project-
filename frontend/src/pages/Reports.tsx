@@ -24,7 +24,7 @@ import {
   Cell,
 } from 'recharts'
 import { mockScanResult, mockFindings } from '../data/mockData'
-import { Card, Button, SeverityBadge, ProgressBar } from '../components/ui'
+import { Card, Button, SeverityBadge, ProgressBar, InfoTooltip } from '../components/ui'
 import { format } from 'date-fns'
 
 const priorityFindings = mockFindings.filter(f => f.status === 'fail').slice(0, 6)
@@ -228,7 +228,10 @@ export default function Reports() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold font-syne text-white">Compliance Report</h1>
+          <h1 className="text-2xl font-bold font-syne text-white flex items-center gap-2">
+            Compliance Report
+            <InfoTooltip content="Generate and download a PDF compliance report summarizing your NIS2 posture, findings, and remediation roadmap" />
+          </h1>
           <p className="text-sm text-navy-300 mt-1">
             NIS2 Article 21 assessment · {mockScanResult.accountName}
           </p>
@@ -283,6 +286,7 @@ export default function Reports() {
         <div className="flex items-center gap-3 mb-5">
           <BarChart2 size={16} className="text-cyan-400" />
           <h2 className="text-base font-bold font-syne text-white">Report Summary</h2>
+          <InfoTooltip content="Compliance scores broken down by NIS2 Article 21 domain — each domain maps to a specific set of security requirements" size={12} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {mockScanResult.domainScores.map(d => (
@@ -309,6 +313,7 @@ export default function Reports() {
           <h3 className="text-sm font-bold font-syne text-white mb-4 flex items-center gap-2">
             <AlertTriangle size={14} className="text-red-400" />
             Findings to Remediate
+            <InfoTooltip content="Failed checks from the latest scan that require action to achieve compliance" size={12} />
           </h3>
           <div className="space-y-2">
             {mockFindings.filter(f => f.status === 'fail').map(f => (
@@ -325,6 +330,7 @@ export default function Reports() {
           <h3 className="text-sm font-bold font-syne text-white mb-4 flex items-center gap-2">
             <CheckCircle size={14} className="text-emerald-400" />
             Passing Controls
+            <InfoTooltip content="Checks that your AWS environment currently passes — these controls are compliant" size={12} />
           </h3>
           <div className="space-y-2">
             {mockFindings.filter(f => f.status === 'pass').map(f => (

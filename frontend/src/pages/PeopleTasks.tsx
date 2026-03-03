@@ -15,7 +15,7 @@ import {
   X
 } from 'lucide-react'
 import { useControls } from '../hooks/useControls'
-import { Card, Button, StatCard, ProgressBar, } from '../components/ui'
+import { Card, Button, StatCard, ProgressBar, InfoTooltip } from '../components/ui'
 import { EmployeeCampaign, TaskStatus } from '../types/controls'
 import { format } from 'date-fns'
 
@@ -224,7 +224,10 @@ export default function PeopleTasks() {
       {/* Page Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-[26px] font-bold font-syne text-white">People Tasks</h1>
+          <h1 className="text-[26px] font-bold font-syne text-white flex items-center gap-2">
+            People Tasks
+            <InfoTooltip content="Assign and track employee training campaigns and policy acknowledgments to meet NIS2 people-related requirements" />
+          </h1>
           <p className="text-[14px] text-[#CBD8E8] mt-1">
             Track employee training and policy acknowledgment campaigns
           </p>

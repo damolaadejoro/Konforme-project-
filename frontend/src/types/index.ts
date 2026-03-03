@@ -1,5 +1,5 @@
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'pass'
-export type FindingStatus = 'fail' | 'pass' | 'review'
+export type FindingStatus = 'fail' | 'pass' | 'review' | 'info'
 export type ScanStatus = 'idle' | 'scanning' | 'complete' | 'error'
 
 export interface Finding {
@@ -52,16 +52,9 @@ export interface ScanCheckProgress {
   id: string
   checkName: string
   resource: string
-  status: 'pending' | 'scanning' | 'pass' | 'fail'
+  status: 'pending' | 'scanning' | 'pass' | 'fail' | 'warn' | 'info'
   severity?: Severity
   duration?: number
-}
-
-export interface AWSCredentials {
-  accessKey: string
-  secretKey: string
-  region: string
-  accountName: string
 }
 
 export interface StatsCard {
@@ -69,4 +62,12 @@ export interface StatsCard {
   value: string | number
   change?: number
   icon?: string
+}
+
+export interface AwsAccountCredentials {
+  alias: string
+  accessKeyId: string
+  secretAccessKey: string
+  sessionToken: string
+  region: string
 }

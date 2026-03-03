@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Konforme NIS2 Compliance Scanner - Read-Only Audit Role.
+  This template creates an IAM role that allows Konforme to scan your AWS
+  account for NIS2 compliance. The role has read-only access only.
+
+Parameters:
+  ExternalId:
+    Type: String
+    Description: Unique external ID provided by Konforme (prevents confused deputy attacks)
+    MinLength: 1
+  TrustedAccountId:
+    Type: String
+    Description: The AWS Account ID where Konforme backend is running
+    MinLength: 12
+    MaxLength: 12
+    AllowedPattern: '[0-9]{12}'
+
+Resources:
+  KonformeAuditRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: KonformeAuditRole
+      Description: Read-only role for Konforme NIS2 compliance scanning
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${TrustedAccountId}:root'
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Ref ExternalId
+      Policies:
+        - PolicyName: KonformeReadOnlyPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: KonformeReadOnlyAccess
+                Effect: Allow
+                Action:
+                  - cloudtrail:DescribeTrails
+                  - cloudtrail:GetTrailStatus
+                  - iam:GetAccountSummary
+                  - iam:ListUsers
+                  - iam:ListAccessKeys
+                  - iam:GetLoginProfile
+                  - iam:ListMFADevices
+                  - s3:ListAllMyBuckets
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:GetBucketEncryption
+                  - s3:GetBucketVersioning
+                  - guardduty:ListDetectors
+                  - guardduty:GetDetector
+                  - securityhub:DescribeHub
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeVpcs
+                  - ec2:DescribeFlowLogs
+                  - ec2:GetEbsEncryptionByDefault
+                  - kms:ListKeys
+                  - kms:DescribeKey
+                  - kms:GetKeyRotationStatus
+                Resource: '*'
+
+Outputs:
+  RoleArn:
+    Description: Copy this ARN and paste it into Konforme
+    Value: !GetAtt KonformeAuditRole.Arn
+  ExternalId:
+    Description: The External ID used (keep this for your records)
+    Value: !Ref ExternalId

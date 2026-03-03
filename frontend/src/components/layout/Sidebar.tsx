@@ -8,16 +8,21 @@ import {
   ChevronRight,
   Shield,
   Users,
+  ClipboardCheck,
+  ListTodo,
 } from 'lucide-react'
 import Logo from './Logo'
+import { Tooltip } from '../ui'
 
 const navItems = [
-  { path: '/', label: 'NIS2 Overview', icon: LayoutDashboard },
-  { path: '/controls', label: 'Controls Library', icon: Shield },
-  { path: '/scan', label: 'Technical Scan', icon: Radar },
-  { path: '/people-tasks', label: 'People Tasks', icon: Users },
-  { path: '/reports', label: 'Reports', icon: FileText },
-  { path: '/settings', label: 'Settings', icon: Settings },
+  { path: '/', label: 'NIS2 Overview', icon: LayoutDashboard, tooltip: 'Your compliance dashboard — overall scores, gaps, and coverage' },
+  { path: '/controls', label: 'Controls Library', icon: Shield, tooltip: 'Manage all NIS2 controls — assign owners, track status, upload evidence' },
+  { path: '/assessment', label: 'Assessment', icon: ClipboardCheck, tooltip: 'Self-assessment questionnaire to evaluate your NIS2 maturity' },
+  { path: '/remediation', label: 'Remediation', icon: ListTodo, tooltip: 'Action items to close compliance gaps from your assessment' },
+  { path: '/scan', label: 'Technical Scan', icon: Radar, tooltip: 'Run automated AWS infrastructure scans against NIS2 requirements' },
+  { path: '/people-tasks', label: 'People Tasks', icon: Users, tooltip: 'Employee training campaigns and policy acknowledgments' },
+  { path: '/reports', label: 'Reports', icon: FileText, tooltip: 'Generate compliance audit reports' },
+  { path: '/settings', label: 'Settings', icon: Settings, tooltip: 'Account and AWS connection settings' },
 ]
 
 export default function Sidebar() {
@@ -30,32 +35,33 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map(({ path, label, icon: Icon }) => (
-          <NavLink
-            key={path}
-            to={path}
-            end={path === '/'}
-            className={({ isActive }) =>
-              `group flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-200 ${
-                isActive
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                  : 'text-[#CBD8E8] hover:bg-navy-800 hover:text-white border border-transparent'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <Icon
-                  size={18}
-                  className={isActive ? 'text-cyan-400' : 'text-[#94b4d1] group-hover:text-white'}
-                />
-                <span className="flex-1">{label}</span>
-                {isActive && (
-                  <ChevronRight size={14} className="text-cyan-400" />
-                )}
-              </>
-            )}
-          </NavLink>
+        {navItems.map(({ path, label, icon: Icon, tooltip }) => (
+          <Tooltip key={path} content={tooltip} side="right">
+            <NavLink
+              to={path}
+              end={path === '/'}
+              className={({ isActive }) =>
+                `group flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                    : 'text-[#CBD8E8] hover:bg-navy-800 hover:text-white border border-transparent'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <Icon
+                    size={18}
+                    className={isActive ? 'text-cyan-400' : 'text-[#94b4d1] group-hover:text-white'}
+                  />
+                  <span className="flex-1">{label}</span>
+                  {isActive && (
+                    <ChevronRight size={14} className="text-cyan-400" />
+                  )}
+                </>
+              )}
+            </NavLink>
+          </Tooltip>
         ))}
       </nav>
 
