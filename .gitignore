@@ -13,11 +13,3 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
-
-# Terraform
-infrastructure/terraform/.terraform/
-infrastructure/terraform/.terraform.lock.hcl
-infrastructure/terraform/terraform.tfstate*
-infrastructure/terraform.tfvars
-*.tfvars
-!*.tfvars.example

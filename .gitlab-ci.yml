@@ -1,13 +1,11 @@
 stages:
   - test
-  - infra
   - build
   - deploy
 
 variables:
   ECR_REGISTRY: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
   IMAGE_TAG: ${CI_COMMIT_SHORT_SHA}
-  TF_DIR: infrastructure/terraform
 
 # ---------------------------------------------------------------------------
 # TEST STAGE
@@ -37,47 +35,6 @@ frontend-test:
   rules:
     - if: $CI_MERGE_REQUEST_IID
     - if: $CI_COMMIT_BRANCH == "Main"
-
-# ---------------------------------------------------------------------------
-# INFRASTRUCTURE STAGE
-# ---------------------------------------------------------------------------
-
-.terraform-base:
-  image:
-    name: hashicorp/terraform:1.9
-    entrypoint: [""]
-  before_script:
-    - cd ${TF_DIR}
-    - terraform init -input=false
-
-# Plan on merge requests — shows what would change
-terraform-plan:
-  extends: .terraform-base
-  stage: infra
-  script:
-    - terraform validate
-    - terraform plan -input=false -out=plan.cache
-  artifacts:
-    paths:
-      - ${TF_DIR}/plan.cache
-    expire_in: 1 hour
-  rules:
-    - if: $CI_MERGE_REQUEST_IID
-      changes:
-        - infrastructure/**/*
-
-# Apply on Main — provisions/updates real infrastructure
-terraform-apply:
-  extends: .terraform-base
-  stage: infra
-  script:
-    - terraform validate
-    - terraform plan -input=false -out=plan.cache
-    - terraform apply -input=false -auto-approve plan.cache
-  rules:
-    - if: $CI_COMMIT_BRANCH == "Main"
-      changes:
-        - infrastructure/**/*
 
 # ---------------------------------------------------------------------------
 # BUILD STAGE
@@ -115,12 +72,26 @@ deploy-backend:
     - echo "$EC2_SSH_KEY" | tr -d '\r' | ssh-add -
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
   script:
-    - >
-      bash infrastructure/scripts/deploy.sh
-      "$EC2_HOST"
-      "$EC2_USER"
-      "${ECR_REGISTRY}/${ECR_REPO_NAME}"
-      "${IMAGE_TAG}"
-      "${AWS_DEFAULT_REGION}"
+    - |
+      ssh -o StrictHostKeyChecking=no "$EC2_USER@$EC2_HOST" bash <<REMOTE
+      set -euo pipefail
+      ECR_REPO="${ECR_REGISTRY}/${ECR_REPO_NAME}"
+      aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin \$ECR_REPO
+      docker pull \$ECR_REPO:${IMAGE_TAG}
+      docker tag \$ECR_REPO:${IMAGE_TAG} \$ECR_REPO:latest
+      cd /opt/konforme
+      docker compose up -d --no-deps backend
+      echo "Waiting for health check..."
+      for i in \$(seq 1 30); do
+        if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+          echo "Health check passed!"
+          exit 0
+        fi
+        echo "  Attempt \$i/30..."
+        sleep 5
+      done
+      echo "ERROR: Health check failed"
+      exit 1
+      REMOTE
   rules:
     - if: $CI_COMMIT_BRANCH == "Main"
