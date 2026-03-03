@@ -6,6 +6,7 @@ from sqlalchemy.pool import StaticPool
 
 from database import Base, get_db
 from main import app
+from rate_limit import limiter
 
 
 @pytest.fixture()
@@ -28,7 +29,7 @@ def db_session():
 
 @pytest.fixture()
 def client(db_session):
-    """FastAPI test client with overridden DB dependency."""
+    """FastAPI test client with overridden DB dependency and rate limiting disabled."""
     def override_get_db():
         try:
             yield db_session
@@ -36,8 +37,10 @@ def client(db_session):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
+    limiter.enabled = False
     with TestClient(app) as c:
         yield c
+    limiter.enabled = True
     app.dependency_overrides.clear()
 
 

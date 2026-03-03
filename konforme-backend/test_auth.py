@@ -107,7 +107,7 @@ class TestJWTProtection:
 
     def test_protected_endpoint_without_token(self, client):
         res = client.get("/api/v1/accounts")
-        assert res.status_code == 403  # HTTPBearer returns 403 when no creds
+        assert res.status_code == 401
 
     def test_protected_endpoint_with_invalid_token(self, client):
         res = client.get("/api/v1/accounts", headers={
@@ -120,7 +120,7 @@ class TestJWTProtection:
         res = client.get("/api/v1/accounts", headers={
             "Authorization": "NotBearer sometoken",
         })
-        assert res.status_code == 403
+        assert res.status_code == 401
 
     def test_token_from_register_works(self, client):
         reg = client.post("/api/v1/auth/register", json={
