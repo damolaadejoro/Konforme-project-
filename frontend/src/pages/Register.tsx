@@ -1,9 +1,8 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { UserPlus, Eye, EyeOff } from 'lucide-react'
+import { Shield, UserPlus, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { Card, Button, Input } from '../components/ui'
-import Logo from '../components/layout/Logo'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -120,8 +119,8 @@ export default function Register() {
     <div className="min-h-screen bg-navy-950 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center mb-4">
-            <Logo size="lg" showText={false} />
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-cyan-700 mb-4">
+            <Shield size={28} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold font-syne text-white">Create your account</h1>
           <p className="text-sm text-navy-400 mt-1">Get started with NIS2 compliance</p>
