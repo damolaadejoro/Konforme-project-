@@ -84,8 +84,8 @@ export default function Login() {
           <div className="inline-flex items-center justify-center mb-4">
             <Logo size="lg" showText={false} />
           </div>
-          <h1 className="text-2xl font-bold font-syne text-white">Sign in to Konforme</h1>
-          <p className="text-sm text-navy-400 mt-1">Enter your credentials to continue</p>
+          <h1 className="text-2xl font-bold font-syne text-white">Welcome back</h1>
+          <p className="text-sm text-navy-400 mt-1">Sign in to your Konforme account</p>
         </div>
 
         <Card>
