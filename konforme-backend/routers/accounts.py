@@ -10,6 +10,7 @@ from database import get_db
 from models import Account, AwsAccount
 from schemas import (
     AccountResponse,
+    AccountUpdateRequest,
     AddAwsAccountRequest,
     AwsAccountResponse,
 )
@@ -57,6 +58,24 @@ def get_account(account: Account = Depends(get_current_account), db: Session = D
         connected_at=account.connected_at,
         aws_accounts=[_aws_account_to_response(a) for a in active_aws],
     )
+
+
+@router.put("/accounts")
+def update_account(
+    req: AccountUpdateRequest,
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    if req.name is not None:
+        account.name = req.name
+    if req.email is not None:
+        existing = db.query(Account).filter(Account.email == req.email, Account.id != account.id).first()
+        if existing:
+            raise HTTPException(status_code=409, detail="An account with this email already exists")
+        account.email = req.email
+    db.commit()
+    db.refresh(account)
+    return {"account_id": account.id, "account_name": account.name, "email": account.email}
 
 
 @router.post("/accounts/aws-accounts", response_model=AwsAccountResponse)

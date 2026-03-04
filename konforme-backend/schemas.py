@@ -62,6 +62,13 @@ class AddAwsAccountRequest(BaseModel):
 
 # --- Account ---
 
+class AccountUpdateRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    name: str | None = None
+    email: EmailStr | None = None
+
+
 class AccountResponse(BaseModel):
     id: str
     name: str
