@@ -71,9 +71,10 @@ function ReportPreview() {
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
-                <path d="M20 3L5 9.5V20C5 28.284 11.716 35.5 20 37C28.284 35.5 35 28.284 35 20V9.5L20 3Z" fill="#0B1F3A" stroke="#00C2D4" strokeWidth="1.5"/>
-                <text x="20" y="26" fontFamily="sans-serif" fontSize="16" fontWeight="700" fill="#00C2D4" textAnchor="middle">K</text>
+              <svg width="28" height="28" viewBox="0 0 200 200" fill="none">
+                <circle cx="100" cy="100" r="100" fill="#0B1F3A" />
+                <path d="M100 30L40 58V100C40 137 64 170 100 182C136 170 160 137 160 100V58L100 30Z" fill="#0B1F3A" stroke="#00C2D4" strokeWidth="6" />
+                <path d="M72 72V128M72 100L104 72M72 100L108 128" stroke="#00C2D4" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <span className="text-white font-bold text-lg font-syne">Konforme</span>
             </div>
