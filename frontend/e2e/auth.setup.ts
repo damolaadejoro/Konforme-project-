@@ -44,7 +44,7 @@ setup('authenticate', async ({ page }) => {
 
   // Navigate to the app and wait for it to settle
   await page.goto('/login')
-  await expect(page.locator('h1')).toContainText('Sign in to Konforme')
+  await expect(page.locator('h1')).toContainText('Welcome back')
 
   // Inject auth localStorage values
   await page.evaluate(() => {
