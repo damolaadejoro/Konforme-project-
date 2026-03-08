@@ -1,6 +1,6 @@
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -18,6 +18,7 @@ from schemas import (
     ScanResponse,
     ScanStartRequest,
     ScanStartResponse,
+    ScanSummaryResponse,
 )
 
 router = APIRouter()
@@ -158,6 +159,19 @@ def start_scan(
     if not aws_acc:
         raise HTTPException(status_code=404, detail="AWS account not found or inactive")
 
+    # Expire stale scans stuck in queued/running for over 10 minutes
+    stale_cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
+    stale_scans = db.query(Scan).filter(
+        Scan.account_id == account_id,
+        Scan.aws_account_id == req.aws_account_id,
+        Scan.status.in_(["queued", "running"]),
+        Scan.started_at < stale_cutoff,
+    ).all()
+    for s in stale_scans:
+        s.status = "error"
+    if stale_scans:
+        db.commit()
+
     # Check for already running scan on this AWS account
     running = db.query(Scan).filter(
         Scan.account_id == account_id,
@@ -253,3 +267,116 @@ def get_scan(
         findings=findings,
         domainScores=[DomainScoreResponse(**d) for d in domain_scores],
     )
+
+
+@router.get("/scan/latest/{account_id}", response_model=ScanResponse)
+def get_latest_scan(
+    account_id: str,
+    aws_account_id: str,
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    enforce_account_access(account, account_id)
+
+    scan = (
+        db.query(Scan)
+        .filter(
+            Scan.account_id == account_id,
+            Scan.aws_account_id == aws_account_id,
+            Scan.status == "complete",
+        )
+        .order_by(Scan.completed_at.desc())
+        .first()
+    )
+    if not scan:
+        raise HTTPException(status_code=404, detail="No completed scan found")
+
+    aws_acc = scan.aws_account
+    region = aws_acc.aws_region if aws_acc else "unknown"
+    aws_account_id_str = aws_acc.aws_account_id if aws_acc else ""
+
+    results = db.query(ScanResult).filter(ScanResult.scan_id == scan.id).all()
+    domain_scores = _build_domain_scores(results)
+
+    findings = []
+    for r in results:
+        mapping = NIS2_MAPPING.get(r.check_id, {})
+        findings.append(
+            FindingResponse(
+                id=r.id,
+                checkName=r.check_id,
+                description=r.message,
+                resource=r.resource,
+                resourceType=mapping.get("domain", "AWS"),
+                severity=r.severity,
+                status="review" if r.status == "warn" else "info" if r.status == "info" else r.status,
+                article=r.nis2_article,
+                articleTitle=mapping.get("article_title", ""),
+                region=region,
+                evidence=r.message,
+                remediation=r.remediation,
+                remediationSteps=json.loads(r.remediation_steps) if r.remediation_steps else [],
+                domain=mapping.get("domain", "Other"),
+                timestamp=scan.started_at.isoformat() if scan.started_at else "",
+            )
+        )
+
+    return ScanResponse(
+        id=scan.id,
+        accountName=account.name,
+        accountId=aws_account_id_str,
+        awsAccountId=aws_acc.id if aws_acc else None,
+        awsAlias=aws_acc.alias if aws_acc else None,
+        region=region,
+        startedAt=scan.started_at.isoformat() if scan.started_at else "",
+        completedAt=scan.completed_at.isoformat() if scan.completed_at else None,
+        status=scan.status,
+        overallScore=scan.overall_score,
+        totalChecks=scan.total_checks,
+        passed=scan.passed,
+        failed=scan.failed,
+        criticalCount=scan.critical_count,
+        highCount=scan.high_count,
+        mediumCount=scan.medium_count,
+        lowCount=scan.low_count,
+        findings=findings,
+        domainScores=[DomainScoreResponse(**d) for d in domain_scores],
+    )
+
+
+@router.get("/scans/{account_id}", response_model=list[ScanSummaryResponse])
+def get_scan_history(
+    account_id: str,
+    aws_account_id: str,
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    enforce_account_access(account, account_id)
+
+    scans = (
+        db.query(Scan)
+        .filter(
+            Scan.account_id == account_id,
+            Scan.aws_account_id == aws_account_id,
+        )
+        .order_by(Scan.started_at.desc())
+        .all()
+    )
+
+    return [
+        ScanSummaryResponse(
+            id=s.id,
+            status=s.status,
+            startedAt=s.started_at.isoformat() if s.started_at else "",
+            completedAt=s.completed_at.isoformat() if s.completed_at else None,
+            overallScore=s.overall_score,
+            totalChecks=s.total_checks,
+            passed=s.passed,
+            failed=s.failed,
+            criticalCount=s.critical_count,
+            highCount=s.high_count,
+            mediumCount=s.medium_count,
+            lowCount=s.low_count,
+        )
+        for s in scans
+    ]
