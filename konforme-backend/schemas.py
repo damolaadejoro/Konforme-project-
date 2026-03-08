@@ -117,6 +117,21 @@ class DomainScoreResponse(BaseModel):
     total: int
 
 
+class ScanSummaryResponse(BaseModel):
+    id: str
+    status: str
+    startedAt: str
+    completedAt: str | None
+    overallScore: float | None
+    totalChecks: int
+    passed: int
+    failed: int
+    criticalCount: int
+    highCount: int
+    mediumCount: int
+    lowCount: int
+
+
 class ScanResponse(BaseModel):
     id: str
     accountName: str
