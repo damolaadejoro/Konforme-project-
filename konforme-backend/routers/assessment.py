@@ -268,18 +268,28 @@ def get_assessment_history(
         .all()
     )
 
-    return AssessmentHistoryResponse(
-        versions=[
+    summaries = []
+    for v in versions:
+        score = v.overall_score
+        # Compute score on-the-fly for drafts that have responses
+        if score is None and v.responses:
+            score_inputs = [
+                {"question_id": r.question_id, "maturity_level": r.maturity_level}
+                for r in v.responses
+            ]
+            scores = calculate_assessment_score(score_inputs)
+            score = scores["overall_score"]
+        summaries.append(
             AssessmentVersionSummary(
                 id=v.id,
                 version=v.version,
                 submittedAt=v.submitted_at.isoformat(),
-                overallScore=v.overall_score,
+                overallScore=score,
                 status=v.status,
             )
-            for v in versions
-        ]
-    )
+        )
+
+    return AssessmentHistoryResponse(versions=summaries)
 
 
 @router.get("/assessment/{account_id}/version/{version_id}", response_model=AssessmentVersionResponse)
