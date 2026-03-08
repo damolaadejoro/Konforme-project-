@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     database_pool_size: int = 5
     database_max_overflow: int = 10
     database_pool_timeout: int = 30
+    upload_dir: str = "/data/evidence"
+    max_upload_size_mb: int = 10
 
     @property
     def origins_list(self) -> list[str]:

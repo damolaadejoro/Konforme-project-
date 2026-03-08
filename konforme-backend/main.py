@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from config import settings
 from database import Base, engine
 from rate_limit import limiter
-from routers import accounts, assessment, remediation, scans, score
+from routers import accounts, assessment, evidence, remediation, scans, score
 from routers.auth_router import router as auth_router
 
 # Paths exempt from CSRF validation (login/register need to work without a prior CSRF token)
@@ -97,6 +97,7 @@ app.include_router(scans.router, prefix="/api/v1", tags=["Scans"])
 app.include_router(assessment.router, prefix="/api/v1", tags=["Assessment"])
 app.include_router(score.router, prefix="/api/v1", tags=["Score & Report"])
 app.include_router(remediation.router, prefix="/api/v1", tags=["Remediation"])
+app.include_router(evidence.router, prefix="/api/v1", tags=["Evidence"])
 
 
 @app.get("/health")

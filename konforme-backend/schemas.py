@@ -323,6 +323,19 @@ class RemediationTaskUpdate(BaseModel):
     due_date: str | None = None
 
 
+# --- Evidence ---
+
+
+class EvidenceResponse(BaseModel):
+    id: str
+    controlId: str
+    filename: str
+    fileSize: int
+    contentType: str
+    uploadedAt: str
+    uploadedBy: str
+
+
 # --- Score ---
 
 class ArticleBreakdown(BaseModel):

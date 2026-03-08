@@ -18,9 +18,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Create non-root user and switch to it
+# Create non-root user and evidence storage directory
 RUN addgroup --system appgroup && \
-    adduser --system --ingroup appgroup appuser
+    adduser --system --ingroup appgroup appuser && \
+    mkdir -p /data/evidence && \
+    chown -R appuser:appgroup /data/evidence
 USER appuser
 
 EXPOSE 8000

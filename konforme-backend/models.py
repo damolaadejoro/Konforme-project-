@@ -31,6 +31,7 @@ class Account(Base):
     aws_accounts: Mapped[list["AwsAccount"]] = relationship(back_populates="account", cascade="all, delete-orphan")
     scans: Mapped[list["Scan"]] = relationship(back_populates="account", cascade="all, delete-orphan")
     assessments: Mapped[list["Assessment"]] = relationship(back_populates="account", cascade="all, delete-orphan")
+    evidence_files: Mapped[list["Evidence"]] = relationship(back_populates="account", cascade="all, delete-orphan")
 
 
 class AwsAccount(Base):
@@ -144,6 +145,22 @@ class AssessmentResponse(Base):
     answered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     assessment_version: Mapped["AssessmentVersion"] = relationship(back_populates="responses")
+
+
+class Evidence(Base):
+    __tablename__ = "evidence"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
+    account_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.id"), nullable=False)
+    control_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    stored_filename: Mapped[str] = mapped_column(String(500), nullable=False)
+    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    uploaded_by: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    account: Mapped["Account"] = relationship(back_populates="evidence_files")
 
 
 class RemediationTask(Base):
