@@ -8,11 +8,13 @@ from auth import get_current_account
 from encryption import encrypt_value
 from database import get_db
 from models import Account, AwsAccount
+from eu_countries import EU_COUNTRIES, VALID_EU_CODES
 from schemas import (
     AccountResponse,
     AccountUpdateRequest,
     AddAwsAccountRequest,
     AwsAccountResponse,
+    EUCountryInfo,
 )
 
 router = APIRouter()
@@ -48,6 +50,12 @@ def _aws_account_to_response(aws_acc: AwsAccount) -> AwsAccountResponse:
     )
 
 
+@router.get("/countries", response_model=list[EUCountryInfo])
+def get_eu_countries():
+    """Return all 27 EU member states with NIS2 authority data."""
+    return [EUCountryInfo(**v) for v in EU_COUNTRIES.values()]
+
+
 @router.get("/accounts", response_model=AccountResponse)
 def get_account(account: Account = Depends(get_current_account), db: Session = Depends(get_db)):
     active_aws = [a for a in account.aws_accounts if a.is_active]
@@ -55,6 +63,8 @@ def get_account(account: Account = Depends(get_current_account), db: Session = D
         id=account.id,
         name=account.name,
         is_active=account.is_active,
+        country=account.country,
+        language=account.language,
         connected_at=account.connected_at,
         aws_accounts=[_aws_account_to_response(a) for a in active_aws],
     )
@@ -73,6 +83,14 @@ def update_account(
         if existing:
             raise HTTPException(status_code=409, detail="An account with this email already exists")
         account.email = req.email
+    if req.country is not None:
+        if req.country != "" and req.country not in VALID_EU_CODES:
+            raise HTTPException(status_code=422, detail=f"Invalid EU country code: {req.country}")
+        account.country = req.country if req.country != "" else None
+    if req.language is not None:
+        if req.language not in ("en", "pt"):
+            raise HTTPException(status_code=422, detail=f"Unsupported language: {req.language}")
+        account.language = req.language
     db.commit()
     db.refresh(account)
     return {"account_id": account.id, "account_name": account.name, "email": account.email}

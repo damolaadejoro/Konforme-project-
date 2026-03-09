@@ -89,6 +89,8 @@ def register(req: RegisterRequest, request: Request, response: Response, db: Ses
         name=req.name,
         email=req.email,
         password_hash=hash_password(req.password),
+        country=req.country,
+        language=req.language or "en",
     )
     db.add(account)
     db.commit()
@@ -106,6 +108,8 @@ def register(req: RegisterRequest, request: Request, response: Response, db: Ses
         account_id=account.id,
         account_name=account.name,
         email=account.email,
+        country=account.country,
+        language=account.language,
     )
 
 
@@ -151,6 +155,8 @@ def login(req: LoginRequest, request: Request, response: Response, db: Session =
         account_id=account.id,
         account_name=account.name,
         email=account.email,
+        country=account.country,
+        language=account.language,
     )
 
 
@@ -178,6 +184,8 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
         "account_id": account.id,
         "account_name": account.name,
         "email": account.email,
+        "country": account.country,
+        "language": account.language,
     }
 
 
@@ -193,6 +201,8 @@ def get_me(account: Account = Depends(get_current_account)):
         "account_id": account.id,
         "account_name": account.name,
         "email": account.email,
+        "country": account.country,
+        "language": account.language,
     }
 
 

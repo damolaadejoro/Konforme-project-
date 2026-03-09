@@ -7,7 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import settings
-from database import Base, engine
+from database import Base, engine, run_migrations
 from rate_limit import limiter
 from routers import accounts, assessment, evidence, remediation, scans, score
 from routers.auth_router import router as auth_router
@@ -124,4 +124,5 @@ def on_startup():
                 "Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
             )
 
+    run_migrations(engine)
     Base.metadata.create_all(bind=engine)

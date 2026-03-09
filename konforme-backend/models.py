@@ -26,6 +26,8 @@ class Account(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True)  # ISO 3166-1 alpha-2
+    language: Mapped[str | None] = mapped_column(String(5), nullable=True, default="en")  # ISO 639-1
     connected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     aws_accounts: Mapped[list["AwsAccount"]] = relationship(back_populates="account", cascade="all, delete-orphan")

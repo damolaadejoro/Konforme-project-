@@ -11,6 +11,8 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     name: str
+    country: str | None = None
+    language: str | None = "en"
 
 
 class LoginRequest(BaseModel):
@@ -33,6 +35,8 @@ class AuthResponse(BaseModel):
     account_id: str
     account_name: str
     email: str
+    country: str | None = None
+    language: str | None = "en"
 
 
 # --- AWS Account ---
@@ -67,12 +71,16 @@ class AccountUpdateRequest(BaseModel):
 
     name: str | None = None
     email: EmailStr | None = None
+    country: str | None = None
+    language: str | None = None
 
 
 class AccountResponse(BaseModel):
     id: str
     name: str
     is_active: bool
+    country: str | None = None
+    language: str | None = "en"
     connected_at: datetime
     aws_accounts: list[AwsAccountResponse]
 
@@ -380,3 +388,23 @@ class ReportResponse(BaseModel):
     humanGaps: list[GapResponse]
     passingCount: int
     totalChecks: int
+
+
+# --- EU Countries ---
+
+class EUAuthorityInfo(BaseModel):
+    name: str
+    acronym: str
+    website: str
+    email: str
+    phone: str
+
+class EUCountryInfo(BaseModel):
+    code: str
+    name: str
+    localName: str
+    authority: EUAuthorityInfo
+    reportingUrl: str
+    nis2TranspositionStatus: str  # "transposed" | "partial" | "pending"
+    nis2NationalLaw: str
+    primaryLanguage: str

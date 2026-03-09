@@ -37,6 +37,20 @@ class Base(DeclarativeBase):
     pass
 
 
+def run_migrations(eng):
+    """Idempotent column additions for existing tables."""
+    from sqlalchemy import inspect as sa_inspect, text
+
+    inspector = sa_inspect(eng)
+    if "accounts" in inspector.get_table_names():
+        existing = {c["name"] for c in inspector.get_columns("accounts")}
+        with eng.begin() as conn:
+            if "country" not in existing:
+                conn.execute(text("ALTER TABLE accounts ADD COLUMN country VARCHAR(2)"))
+            if "language" not in existing:
+                conn.execute(text("ALTER TABLE accounts ADD COLUMN language VARCHAR(5) DEFAULT 'en'"))
+
+
 def get_db():
     db = SessionLocal()
     try:
