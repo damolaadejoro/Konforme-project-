@@ -50,7 +50,7 @@ def registered_user(client):
     res = client.post("/api/v1/auth/register", json={
         "name": "Test User",
         "email": "test@example.com",
-        "password": "securepass123",
+        "password": "SecurePass123!",
     })
     assert res.status_code == 200
     return res.json()

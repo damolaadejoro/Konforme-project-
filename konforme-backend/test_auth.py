@@ -9,7 +9,7 @@ class TestRegister:
         res = client.post("/api/v1/auth/register", json={
             "name": "Alice",
             "email": "alice@example.com",
-            "password": "password123",
+            "password": "Password123!",
         })
         assert res.status_code == 200
         data = res.json()
@@ -23,7 +23,7 @@ class TestRegister:
         payload = {
             "name": "Alice",
             "email": "alice@example.com",
-            "password": "password123",
+            "password": "Password123!",
         }
         client.post("/api/v1/auth/register", json=payload)
         res = client.post("/api/v1/auth/register", json=payload)
@@ -43,7 +43,7 @@ class TestRegister:
         res = client.post("/api/v1/auth/register", json={
             "name": "Alice",
             "email": "not-an-email",
-            "password": "password123",
+            "password": "Password123!",
         })
         assert res.status_code == 422  # pydantic validation
 
@@ -61,7 +61,7 @@ class TestLogin:
     def test_login_success(self, client, registered_user):
         res = client.post("/api/v1/auth/login", json={
             "email": "test@example.com",
-            "password": "securepass123",
+            "password": "SecurePass123!",
         })
         assert res.status_code == 200
         data = res.json()
@@ -81,7 +81,7 @@ class TestLogin:
     def test_login_nonexistent_email(self, client):
         res = client.post("/api/v1/auth/login", json={
             "email": "nobody@example.com",
-            "password": "password123",
+            "password": "Password123!",
         })
         assert res.status_code == 401
         assert "Invalid email or password" in res.json()["detail"]
@@ -89,7 +89,7 @@ class TestLogin:
     def test_login_invalid_email_format(self, client):
         res = client.post("/api/v1/auth/login", json={
             "email": "bad-email",
-            "password": "password123",
+            "password": "Password123!",
         })
         assert res.status_code == 422
 
@@ -126,7 +126,7 @@ class TestJWTProtection:
         reg = client.post("/api/v1/auth/register", json={
             "name": "Bob",
             "email": "bob@example.com",
-            "password": "password123",
+            "password": "Password123!",
         })
         token = reg.json()["access_token"]
         res = client.get("/api/v1/accounts", headers={
@@ -138,7 +138,7 @@ class TestJWTProtection:
     def test_token_from_login_works(self, client, registered_user):
         login_res = client.post("/api/v1/auth/login", json={
             "email": "test@example.com",
-            "password": "securepass123",
+            "password": "SecurePass123!",
         })
         token = login_res.json()["access_token"]
         res = client.get("/api/v1/accounts", headers={
@@ -155,10 +155,10 @@ class TestAccountIsolation:
     def test_cannot_access_other_account_score(self, client):
         # Register two users
         r1 = client.post("/api/v1/auth/register", json={
-            "name": "User1", "email": "u1@example.com", "password": "password123",
+            "name": "User1", "email": "u1@example.com", "password": "Password123!",
         })
         r2 = client.post("/api/v1/auth/register", json={
-            "name": "User2", "email": "u2@example.com", "password": "password123",
+            "name": "User2", "email": "u2@example.com", "password": "Password123!",
         })
         token1 = r1.json()["access_token"]
         account1_id = r1.json()["account_id"]
