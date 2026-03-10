@@ -88,7 +88,7 @@ def update_account(
             raise HTTPException(status_code=422, detail=f"Invalid EU country code: {req.country}")
         account.country = req.country if req.country != "" else None
     if req.language is not None:
-        if req.language not in ("en", "pt"):
+        if req.language not in ("en", "pt", "de", "fr", "es", "it", "nl"):
             raise HTTPException(status_code=422, detail=f"Unsupported language: {req.language}")
         account.language = req.language
     db.commit()
