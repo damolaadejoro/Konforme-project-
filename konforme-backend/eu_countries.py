@@ -16,6 +16,12 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "NISG 2024",
         "primaryLanguage": "de",
+        "countryNotes": [
+            "Stricter incident reporting: 24h initial report to GovCERT, 72h detailed follow-up required",
+            "Covers healthcare, energy, and transport sectors more broadly than base NIS2",
+            "Penalties up to €10M or 2% of annual global turnover",
+            "Board members may be held personally liable for non-compliance",
+        ],
     },
     "BE": {
         "code": "BE",
@@ -32,6 +38,12 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "NIS2 Law 2024",
         "primaryLanguage": "nl",
+        "countryNotes": [
+            "CCB acts as single national authority for all NIS2 obligations",
+            "NIS2 scope extends to medium-sized entities in critical sectors",
+            "Mandatory incident notification to CCB within 24 hours",
+            "Annual compliance audits required for entities in scope",
+        ],
     },
     "BG": {
         "code": "BG",
@@ -48,6 +60,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "partial",
         "nis2NationalLaw": "Cybersecurity Act (amended)",
         "primaryLanguage": "bg",
+        "countryNotes": [],
     },
     "HR": {
         "code": "HR",
@@ -64,6 +77,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Zakon o kibernetičkoj sigurnosti",
         "primaryLanguage": "hr",
+        "countryNotes": [],
     },
     "CY": {
         "code": "CY",
@@ -80,6 +94,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "partial",
         "nis2NationalLaw": "NIS2 Transposition Law",
         "primaryLanguage": "el",
+        "countryNotes": [],
     },
     "CZ": {
         "code": "CZ",
@@ -96,6 +111,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Zákon o kybernetické bezpečnosti 2024",
         "primaryLanguage": "cs",
+        "countryNotes": [],
     },
     "DK": {
         "code": "DK",
@@ -112,6 +128,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "NIS2 Implementeringslov",
         "primaryLanguage": "da",
+        "countryNotes": [],
     },
     "EE": {
         "code": "EE",
@@ -128,6 +145,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Küberturvalisuse seadus",
         "primaryLanguage": "et",
+        "countryNotes": [],
     },
     "FI": {
         "code": "FI",
@@ -144,6 +162,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Kyberturvallisuuslaki",
         "primaryLanguage": "fi",
+        "countryNotes": [],
     },
     "FR": {
         "code": "FR",
@@ -160,6 +179,12 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Loi NIS 2",
         "primaryLanguage": "fr",
+        "countryNotes": [
+            "ANSSI can impose binding technical instructions on entities in scope",
+            "Covers local government entities with population over 30,000",
+            "Stricter supply chain due diligence requirements beyond base NIS2",
+            "24-hour incident notification mandatory to ANSSI",
+        ],
     },
     "DE": {
         "code": "DE",
@@ -176,6 +201,12 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "NIS-2-Umsetzungs- und Cybersicherheitsstärkungsgesetz",
         "primaryLanguage": "de",
+        "countryNotes": [
+            "24-hour initial incident report + 72-hour detailed follow-up to BSI required",
+            "Covers federal and state administrative entities",
+            "KRITIS operators must implement physical security measures",
+            "BSI can mandate specific technical standards for critical sectors",
+        ],
     },
     "GR": {
         "code": "GR",
@@ -192,6 +223,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "partial",
         "nis2NationalLaw": "NIS2 Transposition Law",
         "primaryLanguage": "el",
+        "countryNotes": [],
     },
     "HU": {
         "code": "HU",
@@ -208,6 +240,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Kiberbiztonsági törvény",
         "primaryLanguage": "hu",
+        "countryNotes": [],
     },
     "IE": {
         "code": "IE",
@@ -224,6 +257,12 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "NIS2 (Transposition) Act 2024",
         "primaryLanguage": "en",
+        "countryNotes": [
+            "NCSC Ireland is the lead authority; existing NCSC guidelines apply",
+            "Focus on critical infrastructure operators in energy, transport, and health",
+            "Financial services entities have parallel DORA requirements",
+            "Pending full implementation — interim compliance based on existing frameworks",
+        ],
     },
     "IT": {
         "code": "IT",
@@ -240,6 +279,12 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "D.Lgs. 138/2024",
         "primaryLanguage": "it",
+        "countryNotes": [
+            "ACN registration required within 90 days of being identified as in scope",
+            "Progressive administrative fines up to €10M for non-compliance",
+            "Mandatory annual cyber risk assessment for all entities in scope",
+            "Supply chain notification obligations to ACN for significant incidents",
+        ],
     },
     "LV": {
         "code": "LV",
@@ -256,6 +301,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Kiberdrosibas likums",
         "primaryLanguage": "lv",
+        "countryNotes": [],
     },
     "LT": {
         "code": "LT",
@@ -272,6 +318,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Kibernetinio saugumo įstatymas",
         "primaryLanguage": "lt",
+        "countryNotes": [],
     },
     "LU": {
         "code": "LU",
@@ -288,6 +335,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Loi NIS2 2024",
         "primaryLanguage": "fr",
+        "countryNotes": [],
     },
     "MT": {
         "code": "MT",
@@ -304,6 +352,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "partial",
         "nis2NationalLaw": "NIS2 Regulations",
         "primaryLanguage": "mt",
+        "countryNotes": [],
     },
     "NL": {
         "code": "NL",
@@ -320,6 +369,12 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Cyberbeveiligingswet",
         "primaryLanguage": "nl",
+        "countryNotes": [
+            "NCSC serves dual role as both competent authority and national CSIRT",
+            "Mandatory board-level accountability for cyber risk management",
+            "Covers digital infrastructure providers broadly including DNS and TLD registries",
+            "Annual compliance self-assessment required for entities in scope",
+        ],
     },
     "PL": {
         "code": "PL",
@@ -336,6 +391,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Ustawa o krajowym systemie cyberbezpieczeństwa",
         "primaryLanguage": "pl",
+        "countryNotes": [],
     },
     "PT": {
         "code": "PT",
@@ -352,6 +408,12 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Regime Jurídico da Cibersegurança",
         "primaryLanguage": "pt",
+        "countryNotes": [
+            "CNCS is the competent authority for all NIS2 obligations",
+            "24-hour incident notification mandatory for significant incidents",
+            "Covers public administration entities beyond base NIS2 scope",
+            "Interplay with national cybersecurity strategy (ENSC) requirements",
+        ],
     },
     "RO": {
         "code": "RO",
@@ -368,6 +430,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "partial",
         "nis2NationalLaw": "NIS2 Transposition Law",
         "primaryLanguage": "ro",
+        "countryNotes": [],
     },
     "SK": {
         "code": "SK",
@@ -384,6 +447,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Zákon o kybernetickej bezpečnosti",
         "primaryLanguage": "sk",
+        "countryNotes": [],
     },
     "SI": {
         "code": "SI",
@@ -400,6 +464,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Zakon o informacijski varnosti",
         "primaryLanguage": "sl",
+        "countryNotes": [],
     },
     "ES": {
         "code": "ES",
@@ -416,6 +481,12 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Real Decreto-ley NIS2",
         "primaryLanguage": "es",
+        "countryNotes": [
+            "CCN-CERT and INCIBE share authority as dual competent bodies",
+            "Existing ENS (Esquema Nacional de Seguridad) framework applies in parallel",
+            "Stricter rules for operators of essential services under prior RDL 12/2018",
+            "Public sector entities subject to additional national cybersecurity requirements",
+        ],
     },
     "SE": {
         "code": "SE",
@@ -432,6 +503,7 @@ EU_COUNTRIES = {
         "nis2TranspositionStatus": "transposed",
         "nis2NationalLaw": "Cybersäkerhetslagen",
         "primaryLanguage": "sv",
+        "countryNotes": [],
     },
 }
 

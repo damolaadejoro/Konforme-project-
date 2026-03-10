@@ -24,6 +24,21 @@ LOCKOUT_THRESHOLD = 5
 LOCKOUT_DURATION_MINUTES = 15
 
 
+def _validate_password(password: str) -> None:
+    """Enforce password complexity: min 8 chars, uppercase, lowercase, digit, special char."""
+    if len(password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
+    import re
+    if not re.search(r"[A-Z]", password):
+        raise HTTPException(status_code=422, detail="Password must contain at least one uppercase letter")
+    if not re.search(r"[a-z]", password):
+        raise HTTPException(status_code=422, detail="Password must contain at least one lowercase letter")
+    if not re.search(r"\d", password):
+        raise HTTPException(status_code=422, detail="Password must contain at least one digit")
+    if not re.search(r"[^A-Za-z0-9]", password):
+        raise HTTPException(status_code=422, detail="Password must contain at least one special character")
+
+
 def _set_auth_cookies(response: Response, access_token: str, refresh_token: str, csrf_token: str) -> None:
     cookie_kwargs = {
         "httponly": True,
@@ -78,8 +93,7 @@ def _generate_csrf_token() -> str:
 @router.post("/auth/register", response_model=AuthResponse)
 @limiter.limit("3/minute")
 def register(req: RegisterRequest, request: Request, response: Response, db: Session = Depends(get_db)):
-    if len(req.password) < 8:
-        raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
+    _validate_password(req.password)
 
     existing = db.query(Account).filter(Account.email == req.email).first()
     if existing:
@@ -161,6 +175,7 @@ def login(req: LoginRequest, request: Request, response: Response, db: Session =
 
 
 @router.post("/auth/refresh")
+@limiter.limit("10/minute")
 def refresh(request: Request, response: Response, db: Session = Depends(get_db)):
     token = request.cookies.get("refresh_token")
     if not token:
@@ -196,7 +211,8 @@ def logout(response: Response):
 
 
 @router.get("/auth/me")
-def get_me(account: Account = Depends(get_current_account)):
+@limiter.limit("30/minute")
+def get_me(request: Request, account: Account = Depends(get_current_account)):
     return {
         "account_id": account.id,
         "account_name": account.name,
@@ -208,8 +224,7 @@ def get_me(account: Account = Depends(get_current_account)):
 
 @router.post("/auth/reset-password")
 def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
-    if len(req.new_password) < 8:
-        raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
+    _validate_password(req.new_password)
 
     account = db.query(Account).filter(Account.email == req.email, Account.is_active.is_(True)).first()
     if not account:

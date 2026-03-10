@@ -408,3 +408,4 @@ class EUCountryInfo(BaseModel):
     nis2TranspositionStatus: str  # "transposed" | "partial" | "pending"
     nis2NationalLaw: str
     primaryLanguage: str
+    countryNotes: list[str] = []

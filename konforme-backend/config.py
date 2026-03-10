@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
     jwt_algorithm: str = "HS256"
     cookie_domain: str = ""
-    cookie_secure: bool = False
+    cookie_secure: bool = True
     cookie_samesite: str = "lax"
     database_pool_size: int = 5
     database_max_overflow: int = 10

@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: konforme
       POSTGRES_USER: konforme
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-konforme_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in environment}
     ports:
       - "5433:5432"
     volumes:

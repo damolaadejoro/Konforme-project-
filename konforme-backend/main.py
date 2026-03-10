@@ -123,6 +123,10 @@ def on_startup():
                 "ENCRYPTION_KEY is not set. Required for production. "
                 "Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
             )
+        if not settings.cookie_secure:
+            raise RuntimeError(
+                "COOKIE_SECURE must be True in production to prevent cookies being sent over HTTP."
+            )
 
     run_migrations(engine)
     Base.metadata.create_all(bind=engine)
