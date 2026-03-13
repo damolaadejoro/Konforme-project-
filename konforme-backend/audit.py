@@ -60,3 +60,14 @@ def log_scan_error(scan_id: str, account_id: str, error: str) -> None:
 
 def log_access_violation(account_id: str, resource_id: str) -> None:
     _log("access_violation", account_id=account_id, attempted_resource=resource_id)
+
+
+def log_scoring_config_changed(
+    account_id: str, previous: dict | None, new: dict
+) -> None:
+    _log(
+        "scoring_config_changed",
+        account_id=account_id,
+        previous=previous,
+        new=new,
+    )

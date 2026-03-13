@@ -49,6 +49,22 @@ def run_migrations(eng):
                 conn.execute(text("ALTER TABLE accounts ADD COLUMN country VARCHAR(2)"))
             if "language" not in existing:
                 conn.execute(text("ALTER TABLE accounts ADD COLUMN language VARCHAR(5) DEFAULT 'en'"))
+            if "country_id" not in existing:
+                conn.execute(text("ALTER TABLE accounts ADD COLUMN country_id VARCHAR(36)"))
+            if "entity_tier_id" not in existing:
+                conn.execute(text("ALTER TABLE accounts ADD COLUMN entity_tier_id VARCHAR(36)"))
+            if "scoring_config" not in existing:
+                conn.execute(text("ALTER TABLE accounts ADD COLUMN scoring_config TEXT"))
+
+    if "scans" in inspector.get_table_names():
+        existing = {c["name"] for c in inspector.get_columns("scans")}
+        with eng.begin() as conn:
+            if "provider" not in existing:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN provider VARCHAR(20) DEFAULT 'aws'"))
+            if "cloud_credential_id" not in existing:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN cloud_credential_id VARCHAR(36)"))
+            if "aws_account_id" not in existing:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN aws_account_id VARCHAR(36)"))
 
 
 def get_db():

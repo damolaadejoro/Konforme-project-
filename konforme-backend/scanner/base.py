@@ -1,9 +1,15 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from enum import Enum
 
 from botocore.exceptions import ClientError
 
 from scanner.nis2_mapping import NIS2_MAPPING
+
+
+class CloudProviderType(str, Enum):
+    AWS = "aws"
+    AZURE = "azure"
 
 
 @dataclass
@@ -13,6 +19,7 @@ class CheckResult:
     status: str  # pass | fail | warn
     severity: str  # critical | high | medium | low
     message: str
+    provider: str = "aws"  # "aws" | "azure"
     nis2_article: str = ""
     nis2_requirement: str = ""
     remediation: str = ""
@@ -23,6 +30,8 @@ class CheckResult:
 
 
 class BaseCheck(ABC):
+    provider: str = "aws"
+
     @property
     @abstractmethod
     def check_id(self) -> str: ...
@@ -67,6 +76,7 @@ class BaseCheck(ABC):
                     status="warn",
                     severity=self.severity,
                     message=f"AWS API error ({code}): {msg}",
+                    provider=self.provider,
                     nis2_article=self.nis2_article,
                     nis2_requirement=self.nis2_requirement,
                     resource="N/A",
@@ -82,6 +92,7 @@ class BaseCheck(ABC):
                     status="warn",
                     severity=self.severity,
                     message=f"Unexpected error: {e}",
+                    provider=self.provider,
                     nis2_article=self.nis2_article,
                     nis2_requirement=self.nis2_requirement,
                     resource="N/A",

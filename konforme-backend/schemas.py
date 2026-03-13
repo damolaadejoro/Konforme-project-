@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 # --- Auth ---
@@ -85,12 +85,49 @@ class AccountResponse(BaseModel):
     aws_accounts: list[AwsAccountResponse]
 
 
+# --- Cloud Credentials ---
+
+class AddAzureCredentialRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    alias: str
+    tenant_id: str
+    client_id: str
+    client_secret: str
+    subscription_id: str
+
+
+class CloudCredentialResponse(BaseModel):
+    id: str
+    provider: str
+    alias: str
+    is_active: bool
+    added_at: datetime
+    # AWS-specific (masked)
+    aws_account_id: str | None = None
+    aws_region: str | None = None
+    # Azure-specific (masked)
+    azure_subscription_id: str | None = None
+    azure_tenant_id: str | None = None
+
+
+class CloudCredentialListResponse(BaseModel):
+    credentials: list[CloudCredentialResponse]
+
+
 # --- Scan ---
 
 class ScanStartRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
     aws_account_id: str
+
+
+class ScanStartWithProviderRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    credential_id: str
+    provider: str = "aws"  # "aws" | "azure"
 
 
 class ScanStartResponse(BaseModel):
@@ -128,6 +165,7 @@ class DomainScoreResponse(BaseModel):
 class ScanSummaryResponse(BaseModel):
     id: str
     status: str
+    provider: str = "aws"
     startedAt: str
     completedAt: str | None
     overallScore: float | None
@@ -144,8 +182,10 @@ class ScanResponse(BaseModel):
     id: str
     accountName: str
     accountId: str
+    provider: str = "aws"
     awsAccountId: str | None = None
     awsAlias: str | None = None
+    cloudCredentialId: str | None = None
     region: str
     startedAt: str
     completedAt: str | None
@@ -366,6 +406,40 @@ class CombinedScoreResponse(BaseModel):
     articleBreakdown: list[ArticleBreakdown]
 
 
+# --- Scoring Config ---
+
+class ScoringConfig(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    technical_weight: float = Field(default=0.6, ge=0.0, le=1.0)
+    organizational_weight: float = Field(default=0.4, ge=0.0, le=1.0)
+    domain_weights: dict | None = None  # Reserved for future use
+    preset: str | None = None  # Reserved for future use
+
+    @model_validator(mode="after")
+    def weights_must_sum_to_one(self):
+        total = self.technical_weight + self.organizational_weight
+        if not (0.99 <= total <= 1.01):
+            raise ValueError("Weights must sum to 1.0")
+        return self
+
+
+class ScoringConfigResponse(BaseModel):
+    technicalWeight: float
+    organizationalWeight: float
+    domainWeights: dict | None = None
+    preset: str | None = None
+
+
+class ScoringConfigUpdateResponse(BaseModel):
+    technicalWeight: float
+    organizationalWeight: float
+    domainWeights: dict | None = None
+    preset: str | None = None
+    previewOverallScore: float | None = None
+    previewGrade: str | None = None
+
+
 # --- Report ---
 
 class ReportAction(BaseModel):
@@ -409,3 +483,85 @@ class EUCountryInfo(BaseModel):
     nis2NationalLaw: str
     primaryLanguage: str
     countryNotes: list[str] = []
+
+
+# --- Country (DB-backed) ---
+
+class CountryListItem(BaseModel):
+    code: str
+    name: str
+    nameLocal: str | None = None
+    transpositionStatus: str
+    transpositionLawName: str | None = None
+    dateEffective: str | None = None
+    competentAuthorityName: str | None = None
+    researchConfidence: str | None = None
+
+
+class CountryResponse(BaseModel):
+    code: str
+    name: str
+    nameLocal: str | None = None
+    transpositionStatus: str
+    transpositionLawName: str | None = None
+    transpositionLawReference: str | None = None
+    transpositionLawUrl: str | None = None
+    datePublished: str | None = None
+    dateEffective: str | None = None
+    competentAuthorityName: str | None = None
+    competentAuthorityUrl: str | None = None
+    csirtName: str | None = None
+    csirtUrl: str | None = None
+    researchConfidence: str | None = None
+    researchNotes: str | None = None
+
+
+class EntityTierResponse(BaseModel):
+    id: str
+    tierKey: str
+    localName: str | None = None
+    description: str | None = None
+    sectors: list = []
+    sizeThresholds: dict = {}
+    obligations: dict = {}
+    penalties: dict = {}
+
+
+class CountryControlResponse(BaseModel):
+    id: str
+    controlId: str
+    euArticle: str | None = None
+    nationalLegalReference: str | None = None
+    nationalSpecification: str | None = None
+    goesBeyondEu: bool = False
+    appliesToTiers: list = []
+    additionalRequirements: list = []
+    isMandatory: bool = True
+
+
+class CountryDeadlineResponse(BaseModel):
+    id: str
+    deadlineDate: str
+    description: str | None = None
+    appliesToTiers: list = []
+    legalReference: str | None = None
+
+
+class CountryAssessmentQuestionResponse(BaseModel):
+    id: str
+    baseQuestionId: str | None = None
+    questionText: str
+    helpText: str | None = None
+    euArticle: str | None = None
+    nationalLegalReference: str | None = None
+    appliesToTiers: list = []
+    domain: str | None = None
+    weight: float = 1.0
+    isAdditional: bool = False
+
+
+class SetCountryRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    country_code: str
+    entity_tier: str | None = None

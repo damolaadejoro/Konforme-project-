@@ -9,7 +9,7 @@ from audit import log_scan_complete, log_scan_error, log_scan_start
 from auth import enforce_account_access, get_current_account
 from encryption import decrypt_value
 from database import SessionLocal, get_db
-from models import Account, AwsAccount, Scan, ScanResult
+from models import Account, AwsAccount, CloudCredential, Scan, ScanResult
 from scanner.nis2_mapping import NIS2_MAPPING
 from scanner.runner import run_all_checks
 from schemas import (
@@ -18,6 +18,7 @@ from schemas import (
     ScanResponse,
     ScanStartRequest,
     ScanStartResponse,
+    ScanStartWithProviderRequest,
     ScanSummaryResponse,
 )
 
@@ -140,6 +141,105 @@ def execute_scan(
         db.close()
 
 
+def execute_provider_scan(
+    scan_id: str,
+    credential_id: str,
+    provider_type: str,
+    account_id: str,
+    account_name: str,
+):
+    """Execute a scan using the CloudProvider abstraction (for Azure or new providers)."""
+    db = SessionLocal()
+    try:
+        scan = db.query(Scan).filter(Scan.id == scan_id).first()
+        if not scan:
+            return
+        scan.status = "running"
+        db.commit()
+        log_scan_start(scan_id, account_id)
+
+        cred = db.query(CloudCredential).filter(CloudCredential.id == credential_id).first()
+        if not cred:
+            scan.status = "error"
+            db.commit()
+            return
+
+        if provider_type == "azure":
+            from scanner.azure_provider import AzureProvider
+            provider = AzureProvider(
+                tenant_id=decrypt_value(cred.azure_tenant_id),
+                client_id=decrypt_value(cred.azure_client_id),
+                client_secret=decrypt_value(cred.azure_client_secret),
+                subscription_id=decrypt_value(cred.azure_subscription_id),
+            )
+        else:
+            from scanner.aws_provider import AWSProvider
+            provider = AWSProvider(
+                access_key_id=decrypt_value(cred.aws_access_key_id),
+                secret_access_key=decrypt_value(cred.aws_secret_access_key),
+                session_token=decrypt_value(cred.aws_session_token) if cred.aws_session_token else None,
+                region=cred.aws_region or "eu-west-1",
+            )
+
+        check_results = provider.run_all_checks()
+
+        critical = high = medium = low = passed = failed = 0
+        for cr in check_results:
+            sr = ScanResult(
+                id=str(uuid.uuid4()),
+                scan_id=scan_id,
+                check_id=cr.check_id,
+                nis2_article=cr.nis2_article,
+                nis2_requirement=cr.nis2_requirement,
+                status=cr.status,
+                severity=cr.severity,
+                title=cr.title,
+                message=cr.message,
+                remediation=cr.remediation,
+                remediation_steps=json.dumps(cr.remediation_steps) if cr.remediation_steps else "",
+                resource=cr.resource,
+            )
+            db.add(sr)
+            if cr.status == "pass":
+                passed += 1
+            elif cr.status == "fail":
+                failed += 1
+                if cr.severity == "critical":
+                    critical += 1
+                elif cr.severity == "high":
+                    high += 1
+                elif cr.severity == "medium":
+                    medium += 1
+                elif cr.severity == "low":
+                    low += 1
+
+        db.flush()
+        all_results = db.query(ScanResult).filter(ScanResult.scan_id == scan_id).all()
+        score = _calculate_technical_score(all_results)
+
+        scan.status = "complete"
+        scan.completed_at = datetime.now(timezone.utc)
+        scan.overall_score = score
+        scan.total_checks = len(check_results)
+        scan.passed = passed
+        scan.failed = failed
+        scan.critical_count = critical
+        scan.high_count = high
+        scan.medium_count = medium
+        scan.low_count = low
+        db.commit()
+        log_scan_complete(scan_id, account_id, score)
+    except Exception as e:
+        db.rollback()
+        scan = db.query(Scan).filter(Scan.id == scan_id).first()
+        if scan:
+            scan.status = "error"
+            db.commit()
+        log_scan_error(scan_id, account_id, str(e))
+    finally:
+        db.close()
+
+
 @router.post("/scan/{account_id}", response_model=ScanStartResponse)
 def start_scan(
     account_id: str,
@@ -204,6 +304,78 @@ def start_scan(
     return ScanStartResponse(scan_id=scan.id, status="queued")
 
 
+@router.post("/scan/{account_id}/provider", response_model=ScanStartResponse)
+def start_provider_scan(
+    account_id: str,
+    req: ScanStartWithProviderRequest,
+    background_tasks: BackgroundTasks,
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    """Start a scan using a cloud credential (supports AWS and Azure)."""
+    enforce_account_access(account, account_id)
+
+    cred = db.query(CloudCredential).filter(
+        CloudCredential.id == req.credential_id,
+        CloudCredential.account_id == account_id,
+        CloudCredential.is_active == True,
+    ).first()
+    if not cred:
+        raise HTTPException(status_code=404, detail="Cloud credential not found or inactive")
+
+    if cred.provider != req.provider:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Credential is for {cred.provider}, not {req.provider}",
+        )
+
+    # Expire stale scans
+    stale_cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
+    stale_scans = db.query(Scan).filter(
+        Scan.account_id == account_id,
+        Scan.cloud_credential_id == req.credential_id,
+        Scan.status.in_(["queued", "running"]),
+        Scan.started_at < stale_cutoff,
+    ).all()
+    for s in stale_scans:
+        s.status = "error"
+    if stale_scans:
+        db.commit()
+
+    # Check for running scan
+    running = db.query(Scan).filter(
+        Scan.account_id == account_id,
+        Scan.cloud_credential_id == req.credential_id,
+        Scan.status.in_(["queued", "running"]),
+    ).first()
+    if running:
+        raise HTTPException(
+            status_code=409,
+            detail="Scan already in progress for this credential",
+            headers={"X-Scan-Id": running.id},
+        )
+
+    scan = Scan(
+        account_id=account_id,
+        cloud_credential_id=cred.id,
+        provider=req.provider,
+    )
+    db.add(scan)
+    db.commit()
+    db.refresh(scan)
+
+    background_tasks.add_task(
+        execute_provider_scan,
+        scan.id,
+        cred.id,
+        req.provider,
+        account.id,
+        account.name,
+    )
+
+    return ScanStartResponse(scan_id=scan.id, status="queued")
+
+
 @router.get("/scan/{scan_id}", response_model=ScanResponse)
 def get_scan(
     scan_id: str,
@@ -250,8 +422,10 @@ def get_scan(
         id=scan.id,
         accountName=account.name,
         accountId=aws_account_id_str,
+        provider=getattr(scan, "provider", "aws") or "aws",
         awsAccountId=aws_acc.id if aws_acc else None,
         awsAlias=aws_acc.alias if aws_acc else None,
+        cloudCredentialId=scan.cloud_credential_id,
         region=region,
         startedAt=scan.started_at.isoformat() if scan.started_at else "",
         completedAt=scan.completed_at.isoformat() if scan.completed_at else None,
@@ -325,8 +499,10 @@ def get_latest_scan(
         id=scan.id,
         accountName=account.name,
         accountId=aws_account_id_str,
+        provider=getattr(scan, "provider", "aws") or "aws",
         awsAccountId=aws_acc.id if aws_acc else None,
         awsAlias=aws_acc.alias if aws_acc else None,
+        cloudCredentialId=scan.cloud_credential_id,
         region=region,
         startedAt=scan.started_at.isoformat() if scan.started_at else "",
         completedAt=scan.completed_at.isoformat() if scan.completed_at else None,
@@ -367,6 +543,7 @@ def get_scan_history(
         ScanSummaryResponse(
             id=s.id,
             status=s.status,
+            provider=getattr(s, "provider", "aws") or "aws",
             startedAt=s.started_at.isoformat() if s.started_at else "",
             completedAt=s.completed_at.isoformat() if s.completed_at else None,
             overallScore=s.overall_score,

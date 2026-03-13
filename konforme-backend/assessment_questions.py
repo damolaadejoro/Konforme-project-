@@ -505,11 +505,17 @@ for q in QUESTIONS:
     QUESTIONS_BY_ARTICLE[art].append(q)
 
 
-def calculate_assessment_score(responses: list[dict]) -> dict:
+def calculate_assessment_score(
+    responses: list[dict],
+    weight_overrides: dict[str, float] | None = None,
+) -> dict:
     """Calculate per-article and overall scores from maturity responses.
 
     Each response: {"question_id": str, "maturity_level": int|None}
     maturity_level None means N/A (excluded).
+
+    weight_overrides: optional {question_id: multiplier} from country-specific config.
+    The effective severity weight becomes base_weight * multiplier.
 
     Returns: {
         "overall_score": float,
@@ -532,7 +538,9 @@ def calculate_assessment_score(responses: list[dict]) -> dict:
         if maturity is None:  # N/A — excluded
             continue
 
-        weight = SEVERITY_WEIGHTS.get(q["severity"], 1)
+        base_weight = SEVERITY_WEIGHTS.get(q["severity"], 1)
+        multiplier = weight_overrides.get(q["id"], 1.0) if weight_overrides else 1.0
+        weight = base_weight * multiplier
         article_data[art]["earned"] += (maturity / 4) * weight
         article_data[art]["max"] += 1.0 * weight
         article_data[art]["answered"] += 1

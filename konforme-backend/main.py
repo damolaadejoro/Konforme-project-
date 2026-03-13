@@ -9,7 +9,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from config import settings
 from database import Base, engine, run_migrations
 from rate_limit import limiter
-from routers import accounts, assessment, evidence, remediation, scans, score
+from routers import accounts, assessment, cloud_credentials, countries, evidence, remediation, scans, score
+from routers import settings as settings_router
 from routers.auth_router import router as auth_router
 
 # Paths exempt from CSRF validation (login/register need to work without a prior CSRF token)
@@ -93,11 +94,14 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Routers
 app.include_router(auth_router, prefix="/api/v1", tags=["Auth"])
 app.include_router(accounts.router, prefix="/api/v1", tags=["Accounts"])
+app.include_router(countries.router, prefix="/api/v1", tags=["Countries"])
 app.include_router(scans.router, prefix="/api/v1", tags=["Scans"])
+app.include_router(cloud_credentials.router, prefix="/api/v1", tags=["Cloud Credentials"])
 app.include_router(assessment.router, prefix="/api/v1", tags=["Assessment"])
 app.include_router(score.router, prefix="/api/v1", tags=["Score & Report"])
 app.include_router(remediation.router, prefix="/api/v1", tags=["Remediation"])
 app.include_router(evidence.router, prefix="/api/v1", tags=["Evidence"])
+app.include_router(settings_router.router, prefix="/api/v1", tags=["Settings"])
 
 
 @app.get("/health")

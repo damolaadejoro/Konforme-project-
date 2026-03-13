@@ -8,13 +8,12 @@ from auth import get_current_account
 from encryption import encrypt_value
 from database import get_db
 from models import Account, AwsAccount
-from eu_countries import EU_COUNTRIES, VALID_EU_CODES
+from eu_countries import VALID_EU_CODES
 from schemas import (
     AccountResponse,
     AccountUpdateRequest,
     AddAwsAccountRequest,
     AwsAccountResponse,
-    EUCountryInfo,
 )
 
 router = APIRouter()
@@ -48,12 +47,6 @@ def _aws_account_to_response(aws_acc: AwsAccount) -> AwsAccountResponse:
         is_active=aws_acc.is_active,
         added_at=aws_acc.added_at,
     )
-
-
-@router.get("/countries", response_model=list[EUCountryInfo])
-def get_eu_countries():
-    """Return all 27 EU member states with NIS2 authority data."""
-    return [EUCountryInfo(**v) for v in EU_COUNTRIES.values()]
 
 
 @router.get("/accounts", response_model=AccountResponse)
