@@ -1,0 +1,32 @@
+{
+  "country_code": "MT",
+  "country_name": "Malta",
+  "local_name": "Malta",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "transposed",
+  "transposition_confidence": "high",
+  "national_law": {
+    "name": "NIS 2 Ordinance",
+    "law_number": "Legal Notice 71",
+    "entry_into_force": "2025-04-08",
+    "note": "Introduces executive liability and enhanced enforcement powers exceeding NIS2 minimum requirements"
+  },
+  "management_liability": {
+    "applicable": true,
+    "description": "Executive liability for cybersecurity compliance. Enhanced enforcement powers exceeding NIS2 minimum requirements."
+  },
+  "competent_authority": {
+    "name": "Critical Infrastructure Department",
+    "acronym": "CID"
+  },
+  "sources": [
+    {
+      "title": "Wavestone - NIS 2 directive transposition status",
+      "url": "https://www.wavestone.com/en/insight/nis-2-european-countries-transposing-directive/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12"
+}

@@ -1,0 +1,37 @@
+{
+  "country_code": "CY",
+  "country_name": "Cyprus",
+  "local_name": "Kypros",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "transposed",
+  "transposition_confidence": "high",
+  "national_law": {
+    "name": "Cybersecurity Law (amendment)",
+    "entry_into_force": "2025-04-25",
+    "framework": "NIST 800-53",
+    "note": "Cyprus specifically references NIST 800-53 as its cybersecurity framework"
+  },
+  "competent_authority": {
+    "name": "Digital Security Authority",
+    "acronym": "DSA"
+  },
+  "incident_reporting": {
+    "early_warning": "6 hours (stricter than NIS2's 24-hour requirement)",
+    "early_warning_stricter": "6 hours",
+    "note": "Cyprus mandates 6-hour early warning vs EU baseline of 24 hours"
+  },
+  "framework": {
+    "name": "NIST 800-53",
+    "description": "Cyprus specifically references NIST 800-53 as its mandatory cybersecurity framework"
+  },
+  "sources": [
+    {
+      "title": "Wavestone - NIS 2 directive transposition status",
+      "url": "https://www.wavestone.com/en/insight/nis-2-european-countries-transposing-directive/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12"
+}

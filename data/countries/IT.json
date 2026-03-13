@@ -1,0 +1,163 @@
+{
+  "country_code": "IT",
+  "country_name": "Italy",
+  "local_name": "Italia",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "transposed",
+  "transposition_confidence": "high",
+  "national_law": {
+    "name": "Decreto legislativo 4 settembre 2024, n. 138",
+    "short_name": "D.Lgs. 138/2024",
+    "formal_citation": "Decreto legislativo 4 settembre 2024, n. 138",
+    "law_number": "138/2024",
+    "publication_date": "2024-10-01",
+    "official_gazette": "Gazzetta Ufficiale della Repubblica Italiana",
+    "gazette_url": "https://www.gazzettaufficiale.it/eli/id/2024/10/01/24G00155/sg",
+    "entry_into_force": "2024-10-16",
+    "entry_into_force_note": "One of the earliest EU member states to transpose NIS2"
+  },
+  "competent_authority": {
+    "name": "Agenzia per la Cybersicurezza Nazionale",
+    "acronym": "ACN",
+    "website": "https://www.acn.gov.it",
+    "role": "National competent authority, NIS2 oversight and enforcement, digital registration portal management, entity classification, guideline issuance",
+    "csirt": "CSIRT Italia"
+  },
+  "csirt": {
+    "name": "CSIRT Italia",
+    "website": "https://www.csirt.gov.it",
+    "parent": "ACN"
+  },
+  "entity_classification": {
+    "essential_entities": {
+      "italian_term": "Soggetti essenziali",
+      "description": "Large enterprises in Annex I high-criticality sectors"
+    },
+    "important_entities": {
+      "italian_term": "Soggetti importanti",
+      "description": "Medium enterprises in Annex II critical sectors"
+    }
+  },
+  "sectors_covered": {
+    "annex_i_essential": [
+      "Energy",
+      "Transport",
+      "Banking",
+      "Health",
+      "Water",
+      "Digital infrastructure",
+      "ICT services",
+      "Space"
+    ],
+    "annex_ii_important": [
+      "Postal and courier services",
+      "Waste management",
+      "Chemicals",
+      "Food",
+      "Medical devices",
+      "Electronics",
+      "Machinery",
+      "Vehicles",
+      "Digital providers",
+      "Research"
+    ],
+    "annex_iii_public_administration": [
+      "Central government",
+      "Regional authorities",
+      "Local authorities",
+      "Constitutional organs",
+      "Health authorities"
+    ],
+    "annex_iv_italian_additions": [
+      "Local transport",
+      "Educational research institutions",
+      "Cultural organizations",
+      "Publicly controlled companies"
+    ]
+  },
+  "incident_reporting": {
+    "pre_notification": "24 hours - indicating malicious acts or cross-border impact potential",
+    "initial_assessment": "72 hours - initial assessment report to CSIRT Italia",
+    "interim_reports": "Upon request by CSIRT Italia",
+    "final_report": "30 days - comprehensive report covering causes, remediation, cross-border effects"
+  },
+  "penalties": {
+    "essential_entities_non_public": {
+      "maximum": "EUR 10,000,000 or 2% of worldwide annual turnover, whichever is higher",
+      "minimum": "One-twentieth of maximum penalty"
+    },
+    "important_entities_non_public": {
+      "maximum": "EUR 7,000,000 or 1.4% of worldwide annual turnover, whichever is higher",
+      "minimum": "One-thirtieth of maximum penalty"
+    },
+    "public_administrations": {
+      "range": "EUR 25,000 to EUR 125,000"
+    },
+    "minor_violations": {
+      "essential": "Up to 0.1% of annual turnover",
+      "important": "Up to 0.07% of annual turnover"
+    }
+  },
+  "compliance_deadlines": {
+    "annual_renewal_cycle": "Annual: January 1 - February 28 each year (starting January 2025)",
+    "acn_entity_list": "March 31 - ACN prepares affected entities list",
+    "acn_notification": "April 15 - ACN communicates inclusion/removal decisions",
+    "risk_management": "18 months from ACN notice receipt (Art. 24)",
+    "training_governance": "18 months from ACN notice receipt (Art. 23)",
+    "transition_period": "9-18 months from notice receipt for entities identified through December 31, 2025",
+    "framework_published": "April 2025 - ACN published implementation framework"
+  },
+  "key_articles": {
+    "art_7": "Registration obligations",
+    "art_23": "Training and governance requirements",
+    "art_24": "Risk management measures",
+    "art_25": "Incident reporting obligations",
+    "art_29": "Information security requirements"
+  },
+  "management_liability": {
+    "applicable": true,
+    "description": "Art 23 mandates management body cybersecurity training. Strategic duties including risk management supervision cannot be delegated. Personal liability for security decisions. Training must be completed within 18 months of ACN notification."
+  },
+  "sources": [
+    {
+      "title": "Gazzetta Ufficiale - D.Lgs. 138/2024",
+      "url": "https://www.gazzettaufficiale.it/eli/id/2024/10/01/24G00155/sg",
+      "type": "official_gazette",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "OpenKRITIS - NIS2 Implementation in Italy",
+      "url": "https://www.openkritis.de/eu/eu-nis-2-italy.html",
+      "type": "reference_site",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "IAPP - Italy updates National Cybersecurity Framework",
+      "url": "https://iapp.org/news/a/italy-updates-national-cybersecurity-and-data-protection-framework",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Eversheds Sutherland - Italy NIS2",
+      "url": "https://ezine.eversheds-sutherland.com/eu-nis2-directive/italy",
+      "type": "law_firm_analysis",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Wavestone - NIS 2 directive transposition status",
+      "url": "https://www.wavestone.com/en/insight/nis-2-european-countries-transposing-directive/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12",
+  "notes": [
+    "Italy was among the first EU member states to transpose NIS2",
+    "ACN published implementation framework in April 2025",
+    "Registration is an annual recurring requirement (January-February each year)",
+    "Italy added unique national sectors in Annex IV (local transport, cultural organizations, etc.)",
+    "Public administration penalties are significantly lower than private sector",
+    "18-month implementation period from ACN notification for compliance measures"
+  ]
+}

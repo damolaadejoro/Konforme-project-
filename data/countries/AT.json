@@ -1,0 +1,74 @@
+{
+  "country_code": "AT",
+  "country_name": "Austria",
+  "local_name": "Oesterreich",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "transposed",
+  "transposition_confidence": "high",
+  "national_law": {
+    "name": "Netz- und Informationssystemsicherheitsgesetz 2026",
+    "short_name": "NISG 2026",
+    "law_number": "NISG 2026",
+    "publication_date": "2025-12-23",
+    "official_gazette": "Bundesgesetzblatt (Federal Law Gazette)",
+    "entry_into_force": "2026-10-01",
+    "entry_into_force_note": "Passed by Nationalrat on December 12, 2025 with two-thirds majority. Previous attempt (NISG 2024) was rejected on July 3, 2024."
+  },
+  "competent_authority": {
+    "name": "Federal Ministry of the Interior",
+    "acronym": "BMI",
+    "website": "https://www.bmi.gv.at"
+  },
+  "scope": {
+    "estimated_entities": "~4,000 companies and organizations",
+    "sectors": "18 socially relevant sectors (medium-sized or larger)"
+  },
+  "compliance_deadlines": {
+    "registration": "2026-12-31",
+    "risk_management_report": "2027-09-30 (information on implemented measures)"
+  },
+  "infringement_proceedings": {
+    "ec_reasoned_opinion": "2025-05-07",
+    "status": "Resolved - NISG 2026 enacted December 2025"
+  },
+  "management_liability": {
+    "applicable": true,
+    "description": "Management board retains personal accountability for cybersecurity. Non-compliance can result in temporary disqualification from management functions. Training required for management and employees."
+  },
+  "csirt": {
+    "name": "CERT.at",
+    "website": "https://www.cert.at"
+  },
+  "penalties": {
+    "essential_entities": "EUR 10,000,000 or 2% of worldwide annual turnover",
+    "important_entities": "EUR 7,000,000 or 1.4% of worldwide annual turnover"
+  },
+  "sources": [
+    {
+      "title": "FEEI - NISG 2026 im Bundesgesetzblatt veroeffentlicht",
+      "url": "https://www.feei.at/aktuelles/nisg-2026-im-bundesgesetzblatt-veroeffentlicht/",
+      "type": "industry_association",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Parlament Oesterreich - NISG Bill",
+      "url": "https://www.parlament.gv.at/gegenstand/XXVIII/I/308",
+      "type": "parliamentary_source",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "WKO - NISG 2026 neue Pflichten zur Cybersicherheit",
+      "url": "https://www.wko.at/it-sicherheit/nis2-uebersicht",
+      "type": "industry_association",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12",
+  "notes": [
+    "Previous NISG 2024 was rejected by Nationalrat on July 3, 2024",
+    "NISG 2026 required two-thirds majority to pass",
+    "Entry into force delayed to October 1, 2026",
+    "Austria among few EU nations that initially faced rejection of NIS2 transposition"
+  ]
+}

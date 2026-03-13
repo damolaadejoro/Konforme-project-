@@ -1,0 +1,48 @@
+{
+  "country_code": "SE",
+  "country_name": "Sweden",
+  "local_name": "Sverige",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "transposed",
+  "transposition_confidence": "high",
+  "national_law": {
+    "name": "NIS2 Implementation Law",
+    "approval_date": "2025-12-10",
+    "entry_into_force": "2026-01-15",
+    "note": "Parliament approved December 10, 2025"
+  },
+  "management_liability": {
+    "applicable": true,
+    "description": "Courts can prohibit management from exercising functions (time-limited ban) for persistent non-compliance. Management must undergo training. MCF authorized to issue training regulations."
+  },
+  "supply_chain_requirements": {
+    "applicable": true,
+    "description": "Cannot be limited to direct suppliers only. Must assess vulnerabilities at sub-suppliers and subsequent chain links. Supplier agreements must address information sharing and sub-supplier accountability."
+  },
+  "competent_authority": {
+    "name": "Swedish Civil Contingencies Agency (now Swedish Civil Defence Authority)",
+    "acronym": "MCF",
+    "website": "https://www.mcf.se"
+  },
+  "csirt": {
+    "name": "CERT-SE",
+    "website": "https://www.cert.se"
+  },
+  "compliance_deadlines": {
+    "note": "No grace period - immediate compliance required from entry into force (2026-01-15)"
+  },
+  "penalties": {
+    "essential_entities": "EUR 10,000,000 or 2% of global annual turnover (min SEK 5,000)",
+    "important_entities": "EUR 7,000,000 or 1.4% of global annual turnover (min SEK 5,000)"
+  },
+  "sources": [
+    {
+      "title": "Wavestone - NIS 2 directive transposition status",
+      "url": "https://www.wavestone.com/en/insight/nis-2-european-countries-transposing-directive/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12"
+}

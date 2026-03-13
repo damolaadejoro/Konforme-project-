@@ -1,0 +1,130 @@
+{
+  "country_code": "ES",
+  "country_name": "Spain",
+  "local_name": "Espana",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "not_transposed",
+  "transposition_confidence": "high",
+  "legislative_status": "draft_under_review",
+  "national_law": {
+    "name": "Ley de Coordinacion y Gobernanza de la Ciberseguridad",
+    "formal_citation": "Anteproyecto de Ley de Coordinacion y Gobernanza de la Ciberseguridad",
+    "law_number": null,
+    "publication_date": null,
+    "official_gazette": "Boletin Oficial del Estado (BOE)",
+    "gazette_url": null,
+    "entry_into_force": null,
+    "status_note": "Council of Ministers approved the draft (anteproyecto) on January 14, 2025. Public consultation completed January-February 2025. Pending parliamentary approval as of March 2026."
+  },
+  "legislative_timeline": [
+    {
+      "date": "2025-01-14",
+      "event": "Council of Ministers approved the Anteproyecto de Ley"
+    },
+    {
+      "date": "2025-01-15",
+      "event": "Public hearing and consultation period opened"
+    },
+    {
+      "date": "2025-02-28",
+      "event": "Public consultation period closed"
+    },
+    {
+      "date": "2025-05-07",
+      "event": "European Commission sent reasoned opinion for failure to transpose"
+    }
+  ],
+  "competent_authority": {
+    "name": "Multiple authorities (proposed)",
+    "authorities": [
+      {
+        "name": "Centro Criptologico Nacional",
+        "acronym": "CCN-CERT",
+        "website": "https://www.ccn-cert.cni.es",
+        "role": "CSIRT for public sector and essential entities"
+      },
+      {
+        "name": "Instituto Nacional de Ciberseguridad",
+        "acronym": "INCIBE",
+        "website": "https://www.incibe.es",
+        "role": "CSIRT for private sector and important entities"
+      },
+      {
+        "name": "Centro Nacional de Proteccion de Infraestructuras y Ciberseguridad",
+        "acronym": "CNPIC",
+        "website": null,
+        "role": "Critical infrastructure protection"
+      },
+      {
+        "name": "Departamento de Seguridad Nacional",
+        "acronym": "DSN",
+        "website": "https://www.dsn.gob.es",
+        "role": "National coordination"
+      }
+    ]
+  },
+  "csirt": {
+    "name": "CCN-CERT / INCIBE-CERT",
+    "websites": [
+      "https://www.ccn-cert.cni.es",
+      "https://www.incibe.es"
+    ]
+  },
+  "proposed_sectors": [
+    "Energy",
+    "Transport",
+    "Finance",
+    "Health",
+    "Water",
+    "Digital infrastructure",
+    "Technology",
+    "Public administration",
+    "Nuclear industry"
+  ],
+  "proposed_features": {
+    "national_cybersecurity_center": "Establishment of a National Cybersecurity Center for coordination and governance",
+    "incident_reporting": "Expected to align with NIS2 standard: 24h early warning, 72h notification, 1 month final report",
+    "penalties": "Expected to align with NIS2 standard: up to EUR 10M / 2% turnover (essential), EUR 7M / 1.4% turnover (important)"
+  },
+  "infringement_proceedings": {
+    "ec_letter_of_formal_notice": "2024-11",
+    "ec_reasoned_opinion": "2025-05-07",
+    "status": "Spain has two months to respond to reasoned opinion"
+  },
+  "sources": [
+    {
+      "title": "DSN - Anteproyecto de Ley de Coordinacion y Gobernanza de la Ciberseguridad",
+      "url": "https://www.dsn.gob.es/en/node/24160",
+      "type": "government_source",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Cuatrecasas - Aprobado el anteproyecto de Ley que transpone la Directiva NIS2",
+      "url": "https://www.cuatrecasas.com/es/spain/propiedad-intelectual/art/aprobado-anteproyecto-ley-transpone-la-directiva-nis2",
+      "type": "law_firm_analysis",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Copla - NIS2 Spain Transposition Status",
+      "url": "https://copla.com/blog/compliance-regulations/nis2-directive-regulations-and-implementation-in-spain/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Wavestone - NIS 2 directive transposition status",
+      "url": "https://www.wavestone.com/en/insight/nis-2-european-countries-transposing-directive/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12",
+  "notes": [
+    "Spain has NOT yet transposed NIS2 as of March 2026",
+    "The draft law (anteproyecto) was approved by Council of Ministers in January 2025",
+    "Parliamentary processing is ongoing - no BOE publication yet",
+    "European Commission infringement proceedings are active",
+    "Current NIS1 framework (RDL 12/2018) remains in force as interim measure",
+    "Multi-authority model proposed: CCN-CERT for public sector, INCIBE for private sector"
+  ]
+}

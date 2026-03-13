@@ -1,0 +1,149 @@
+{
+  "country_code": "PT",
+  "country_name": "Portugal",
+  "local_name": "Portugal",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "transposed",
+  "transposition_confidence": "high",
+  "national_law": {
+    "name": "Regime Juridico da Ciberseguranca",
+    "formal_citation": "Decreto-Lei n.o 125/2025, de 4 de dezembro",
+    "law_number": "DL 125/2025",
+    "publication_date": "2025-12-04",
+    "official_gazette": "Diario da Republica",
+    "gazette_url": "https://diariodarepublica.pt/dr/detalhe/decreto-lei/125-2025-962603401",
+    "entry_into_force": "2026-04-03",
+    "entry_into_force_note": "120 days after publication (December 4, 2025)",
+    "replaces": "Law 46/2018 (NIS1 transposition)"
+  },
+  "competent_authority": {
+    "name": "Centro Nacional de Ciberseguranca",
+    "acronym": "CNCS",
+    "website": "https://www.cncs.gov.pt",
+    "email": "cert@cert.pt",
+    "phone": "+351 210 497 400",
+    "role": "National cybersecurity authority, CSIRT, entity classification, supervision, registration platform operator",
+    "supervisory_body": "Gabinete Nacional de Seguranca (GNS), under the Prime Minister's office"
+  },
+  "csirt": {
+    "name": "CERT.PT",
+    "website": "https://www.cncs.gov.pt",
+    "email": "cert@cert.pt",
+    "reporting_url": "https://www.cncs.gov.pt/en/incident-reporting"
+  },
+  "entity_classification": {
+    "essential_entities": {
+      "description": "Entities in Annex I sectors exceeding medium-sized enterprise thresholds (250+ employees OR EUR 50M+ turnover OR EUR 43M+ balance sheet), plus qualified trust service providers, domain registries, medium-sized telecom companies, critical public administration entities",
+      "size_threshold": "250+ employees OR EUR 50M+ turnover OR EUR 43M+ balance sheet"
+    },
+    "important_entities": {
+      "description": "Non-essential entities from Annex I/II sectors meeting medium-sized enterprise thresholds",
+      "size_threshold": "50+ employees OR EUR 10M+ turnover"
+    },
+    "relevant_public_entities": {
+      "group_a": "Public entities with 250+ employees",
+      "group_b": "Public entities with 50-249 employees"
+    }
+  },
+  "sectors_covered": {
+    "annex_i_high_criticality": [
+      "Energy",
+      "Transport",
+      "Banking",
+      "Financial market infrastructures",
+      "Health",
+      "Drinking water",
+      "Wastewater",
+      "Digital infrastructure",
+      "ICT service management (B2B)",
+      "Space"
+    ],
+    "annex_ii_other_critical": [
+      "Postal and courier services",
+      "Waste management",
+      "Chemical manufacturing",
+      "Food production and distribution",
+      "Manufacturing",
+      "Digital providers",
+      "Research",
+      "Higher education institutions"
+    ],
+    "national_additions": [
+      "Public administration (with limited exceptions)"
+    ]
+  },
+  "incident_reporting": {
+    "initial_notification": "24 hours from identifying a significant incident",
+    "end_of_impact_notification": "24 hours after impact ends",
+    "final_report": "30 working days from end-of-impact notification",
+    "authority_response": "CNCS responds to initial notification within 24 hours"
+  },
+  "penalties": {
+    "essential_entities": {
+      "maximum": "EUR 10,000,000 or 2% of annual global turnover, whichever is higher"
+    },
+    "important_entities": {
+      "maximum": "EUR 10,000,000 or 2% of annual global turnover, whichever is higher"
+    },
+    "additional": "Ancillary sanctions and compulsory financial penalties for non-compliance"
+  },
+  "compliance_deadlines": {
+    "cybersecurity_officer_appointment": "2026-05-04 (20 working days from entry into force)",
+    "permanent_contact_point": "2026-05-04",
+    "entity_registration": "60 days from CNCS platform availability for existing entities; 30 days from activity commencement for new entities",
+    "risk_management_measures": "24 months from CNCS supplementary regulations issuance",
+    "domain_registrars": "30 days from platform availability"
+  },
+  "management_liability": {
+    "applicable": true,
+    "description": "Board members face liability for intentional actions or gross negligence in cybersecurity infringements"
+  },
+  "supply_chain_requirements": {
+    "applicable": true,
+    "description": "Measures must address supplier vulnerabilities, product cybersecurity quality, supplier practices, coordinated risk assessments, and decisions regarding ICT equipment restrictions"
+  },
+  "additional_resources": {
+    "nis2_portal": "https://nis2portugal.pt/",
+    "cncs_platform": "CNCS electronic registration platform (URL TBD)"
+  },
+  "infringement_proceedings": {
+    "ec_reasoned_opinion": "2025-05-07",
+    "status": "Reasoned opinion sent; subsequently transposed in December 2025"
+  },
+  "sources": [
+    {
+      "title": "Diario da Republica - Decreto-Lei 125/2025",
+      "url": "https://diariodarepublica.pt/dr/detalhe/decreto-lei/125-2025-962603401",
+      "type": "official_gazette",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Morais Leitao - Legal Alert: New legal framework for cybersecurity",
+      "url": "https://www.mlgts.pt/en/knowledge/legal-alerts/Legal-Alert-New-legal-framework-for-cybersecurity-Transposition-of-NIS2-Directive/26435/",
+      "type": "law_firm_analysis",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "VdA - NIS 2 Directive transposed in Portugal",
+      "url": "https://www.vda.pt/en/publications/newsletters-and-flashes/nis-2-directive-transposed-in-portugal-decree-law-no-1252025-published/28172/",
+      "type": "law_firm_analysis",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Wavestone - NIS 2 directive transposition status",
+      "url": "https://www.wavestone.com/en/insight/nis-2-european-countries-transposing-directive/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12",
+  "notes": [
+    "CNCS is the competent authority for all NIS2 obligations",
+    "24-hour incident notification mandatory for significant incidents",
+    "Covers public administration entities beyond base NIS2 scope",
+    "Interplay with national cybersecurity strategy (ENSC) requirements",
+    "Law represents a profound reformulation of the Portuguese cybersecurity legal framework",
+    "Crisis Office composed of entities responsible for internal security, defense, and criminal investigation"
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "country_code": "NL",
+  "country_name": "Netherlands",
+  "local_name": "Nederland",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "not_transposed",
+  "transposition_confidence": "high",
+  "legislative_status": "parliamentary_review",
+  "national_law": {
+    "name": "Cyberbeveiligingswet",
+    "short_name": "Cbw",
+    "formal_citation": null,
+    "law_number": null,
+    "publication_date": null,
+    "official_gazette": "Staatsblad",
+    "gazette_url": null,
+    "entry_into_force": null,
+    "status_note": "Submitted to House of Representatives (Tweede Kamer) on June 2, 2025. Plenary debate scheduled for March 23, 2026. Expected entry into force Q2 2026."
+  },
+  "competent_authority": {
+    "name": "Nationaal Cyber Security Centrum",
+    "acronym": "NCSC",
+    "website": "https://www.ncsc.nl",
+    "role": "Lead supervisory and advisory authority for NIS2",
+    "registration_portal": "https://mijn.ncsc.nl"
+  },
+  "scope": {
+    "estimated_entities": "~8,000 organizations",
+    "registration_method": "Online portal (mijn.ncsc.nl) with eHerkenning eID"
+  },
+  "infringement_proceedings": {
+    "ec_reasoned_opinion": "2025-05-07",
+    "status": "Reasoned opinion sent; legislative process ongoing"
+  },
+  "sources": [
+    {
+      "title": "NCSC - Cyberbeveiligingswet FAQ",
+      "url": "https://www.ncsc.nl/cyberbeveiligingswet-nis2/bereid-je-voor/faq-cyberbeveiligingswet-nis2",
+      "type": "government_source",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Nestor Security - Wetsvoorstel Cyberbeveiligingswet ingediend",
+      "url": "https://nestor-security.nl/en/stories/wetsvoorstel-cyberbeveiligingswet-nis2-ingediend-bij-de-tweede-kamer-inwerkingtreding-in-2026/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12",
+  "notes": [
+    "Netherlands has NOT yet transposed NIS2 as of March 2026",
+    "Plenary debate in Tweede Kamer scheduled for March 23, 2026",
+    "Expected entry into force Q2 2026",
+    "NCSC registration portal (mijn.ncsc.nl) requires eHerkenning eID",
+    "Judiciary, First and Second Chamber, and De Nederlandsche Bank are exempt"
+  ]
+}

@@ -22,7 +22,7 @@ from assessment_questions import QUESTIONS  # noqa: E402
 from database import SessionLocal  # noqa: E402
 from models import Country, CountryAssessmentQuestion, CountryControl  # noqa: E402
 
-DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "countries"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "countries"
 
 # ── Article-area mapping for controls ────────────────────────────────────────
 # Maps article strings from QUESTIONS to the JSON fields that might contain

@@ -1,0 +1,95 @@
+{
+  "country_code": "PL",
+  "country_name": "Poland",
+  "local_name": "Polska",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "transposed",
+  "transposition_confidence": "high",
+  "national_law": {
+    "name": "Ustawa o krajowym systemie cyberbezpieczenstwa (Amendment)",
+    "short_name": "KSC Amendment (NIS2)",
+    "formal_citation": "Nowelizacja ustawy o krajowym systemie cyberbezpieczenstwa",
+    "publication_date": "2026-02-19",
+    "publication_note": "Signed by President on February 19, 2026",
+    "official_gazette": "Dziennik Ustaw"
+  },
+  "legislative_history": [
+    {
+      "date": "2025-12-05",
+      "event": "First reading in Sejm (lower house)"
+    },
+    {
+      "date": "2026-01-23",
+      "event": "Sejm passed amendments to KSC Act"
+    },
+    {
+      "date": "2026-01-28",
+      "event": "Senate approved without amendments"
+    },
+    {
+      "date": "2026-02-19",
+      "event": "President signed the amendment"
+    }
+  ],
+  "competent_authority": {
+    "name": "Minister of Digital Affairs",
+    "website": "https://www.gov.pl/web/cyfryzacja"
+  },
+  "incident_reporting": {
+    "early_warning": "24 hours from detection to sectoral CSIRT",
+    "full_report": "72 hours from discovery",
+    "reporting_system": "S46 system (deadline extended to 12 months for application)"
+  },
+  "management_liability": {
+    "applicable": true,
+    "description": "Board members bear individual financial and criminal liability. Responsibility cannot be delegated. Regular training mandatory for management and employees."
+  },
+  "supply_chain_requirements": {
+    "applicable": true,
+    "description": "High-Risk Vendor (HRV) mechanism allows restricting ICT products/services from designated high-risk suppliers. Comprehensive supply chain review required."
+  },
+  "csirt": {
+    "name": "CSIRT NASK",
+    "website": "https://www.nask.pl",
+    "note": "Civilian sector. CSIRT GOV (ABW) for government, CSIRT MON for military."
+  },
+  "compliance_deadlines": {
+    "entity_registration": "2026-10-03 (6 months from entry into force)",
+    "full_compliance": "2027-04-03",
+    "first_audit": "2028-04-03",
+    "penalty_moratorium": "Until approximately April 2028"
+  },
+  "penalties": {
+    "essential_entities": "EUR 10,000,000 or 2% of global annual turnover",
+    "important_entities": "EUR 7,000,000 or 1.4% of global annual turnover",
+    "national_security_threat": "Up to PLN 100,000,000 (~EUR 23 million)"
+  },
+  "sources": [
+    {
+      "title": "Niebezpiecznik - Ustawa wdrazajaca NIS2 czeka na podpis Prezydenta",
+      "url": "https://niebezpiecznik.pl/post/najwazniejsza-dla-cyberbezpieczenstwa-ustawa-wdrazajaca-nis2-czeka-na-podpis-prezydenta/",
+      "type": "news",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "NASK Cyberpolicy - NIS2 Dyrektywa",
+      "url": "https://cyberpolicy.nask.pl/category/obowiazujace/dyrektywa-nis2/",
+      "type": "government_source",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Wavestone - NIS 2 directive transposition status",
+      "url": "https://www.wavestone.com/en/insight/nis-2-european-countries-transposing-directive/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12",
+  "notes": [
+    "7-year legislative process concluded February 2026",
+    "Entities have 6 months to register as key/important entities",
+    "12-month deadline for risk management measure implementation",
+    "S46 incident reporting system with 12-month adoption deadline"
+  ]
+}

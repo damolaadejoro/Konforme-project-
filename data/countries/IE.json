@@ -1,0 +1,60 @@
+{
+  "country_code": "IE",
+  "country_name": "Ireland",
+  "local_name": "Eire",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "not_transposed",
+  "transposition_confidence": "high",
+  "legislative_status": "pre_legislative_scrutiny",
+  "national_law": {
+    "name": "National Cybersecurity Bill",
+    "formal_citation": "General Scheme for the National Cybersecurity Bill",
+    "status_note": "Pre-legislative scrutiny phase. Joint Oireachtas Committee on Justice reviewing. Expected approval early-to-mid 2026. Delayed by 2024 elections."
+  },
+  "competent_authority": {
+    "name": "National Cyber Security Centre",
+    "acronym": "NCSC",
+    "website": "https://www.ncsc.gov.ie",
+    "role": "Lead competent authority for NIS2",
+    "nis2_page": "https://www.ncsc.gov.ie/nis2/"
+  },
+  "preparatory_measures": [
+    "NCSC released draft risk management measures",
+    "Joined Cyber Fundamentals Framework",
+    "Published NIS2 FAQs and guidance"
+  ],
+  "infringement_proceedings": {
+    "ec_letter_of_formal_notice": "2024-11",
+    "ec_reasoned_opinion": "2025-05-07",
+    "status": "Active - potential CJEU referral if not resolved"
+  },
+  "sources": [
+    {
+      "title": "NCSC Ireland - NIS2",
+      "url": "https://www.ncsc.gov.ie/nis2/",
+      "type": "government_source",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "William Fry - NIS2 Ireland and Draft Guidance",
+      "url": "https://www.williamfry.com/knowledge/nis2-ireland-and-draft-guidance/",
+      "type": "law_firm_analysis",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "DLA Piper - NIS2 revamps Ireland's cybersecurity landscape",
+      "url": "https://www.dlapiper.com/en/insights/publications/2025/07/nis2-revamps-irelands-cybersecurity-landscape",
+      "type": "law_firm_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12",
+  "notes": [
+    "Ireland has NOT yet transposed NIS2 as of March 2026",
+    "Delayed by 2024 elections",
+    "NIS1 framework continues as interim measure",
+    "Bill remains a legislative priority per government statements",
+    "NCSC actively publishing preparatory guidance"
+  ]
+}

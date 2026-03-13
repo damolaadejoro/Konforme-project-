@@ -1,0 +1,63 @@
+{
+  "country_code": "BG",
+  "country_name": "Bulgaria",
+  "local_name": "Balgariya",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "transposed",
+  "transposition_confidence": "high",
+  "national_law": {
+    "name": "Amendments to the Cybersecurity Act",
+    "short_name": "ZKS amendments",
+    "entry_into_force": "2026-02-17",
+    "publication_date": "2026-02-17"
+  },
+  "management_liability": {
+    "applicable": true,
+    "description": "Personal liability for managers with fines EUR 500-5,000. Temporary bans from management positions for serious violations. Mandatory cybersecurity training every 2 years (stricter than EU risk-based approach)."
+  },
+  "incident_reporting": {
+    "early_warning": "24 hours",
+    "formal_notification": "72 hours",
+    "final_report": "1 month (or interim if unresolved)",
+    "registry_changes": "Within 2 weeks (stricter than NIS2's 3-month requirement)"
+  },
+  "supply_chain_requirements": {
+    "applicable": true,
+    "description": "Must assess and manage supplier cybersecurity posture including evaluation of suppliers' overall cybersecurity maturity"
+  },
+  "competent_authority": {
+    "name": "Ministry of Electronic Governance",
+    "acronym": "MEG",
+    "website": "https://e-gov.bg"
+  },
+  "csirt": {
+    "name": "CERT Bulgaria",
+    "website": "https://govcert.bg",
+    "contact": "cert@govcert.bg"
+  },
+  "compliance_deadlines": {
+    "entity_identification": "2027-01 (5 months after methodology adoption)",
+    "methodology_adoption": "2026-08 (6 months from entry into force)"
+  },
+  "penalties": {
+    "essential_entities": "EUR 10,000,000 or 2% of worldwide annual turnover (minimum EUR 25,000)",
+    "important_entities": "EUR 7,000,000 or 1.4% of worldwide annual turnover (minimum EUR 12,500)",
+    "individual_managers": "EUR 500 - EUR 5,000"
+  },
+  "sources": [
+    {
+      "title": "Chambers & Partners - Bulgaria NIS2",
+      "url": "https://chambers.com/articles/bulgaria-s-long-road-to-nis2-is-over",
+      "type": "law_firm_analysis",
+      "accessed": "2026-03-13"
+    },
+    {
+      "title": "SEE Legal - Bulgaria NIS2",
+      "url": "https://seelegal.org/news/implementation-of-nis-2-in-bulgaria-key-changes-to-the-cybersecurity-act/",
+      "type": "law_firm_analysis",
+      "accessed": "2026-03-13"
+    }
+  ],
+  "last_verified": "2026-03-13"
+}

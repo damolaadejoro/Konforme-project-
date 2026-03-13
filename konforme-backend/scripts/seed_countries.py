@@ -21,7 +21,7 @@ from database import SessionLocal  # noqa: E402
 from models import Country, CountryDeadline, EntityTier  # noqa: E402
 
 
-DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "countries"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "countries"
 
 
 def _parse_date(date_str: str | None) -> date | None:

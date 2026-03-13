@@ -1,0 +1,46 @@
+{
+  "country_code": "LT",
+  "country_name": "Lithuania",
+  "local_name": "Lietuva",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "transposed",
+  "transposition_confidence": "high",
+  "national_law": {
+    "name": "Law XII-1428",
+    "entry_into_force": "2024-10-17",
+    "entry_into_force_note": "Transposed by EU deadline",
+    "framework": "12-topic framework with 12/24-month implementation periods"
+  },
+  "competent_authority": {
+    "name": "National Cyber Security Centre",
+    "acronym": "NKSC"
+  },
+  "management_liability": {
+    "applicable": true,
+    "description": "Senior management must receive regular cybersecurity training at least every 2 years. A cybersecurity manager must be appointed (Art. 15) plus a security officer for day-to-day protections."
+  },
+  "compliance_deadlines": {
+    "entity_identification": "2025-04-17 (NCSC identifies ~2,000 entities)",
+    "organisational_measures": "12 months from inclusion in register (~April 2026)",
+    "technical_measures": "24 months from inclusion in register (~April 2027)"
+  },
+  "csirt": {
+    "name": "CERT-LT",
+    "website": "https://www.nksc.lt"
+  },
+  "penalties": {
+    "essential_entities": "EUR 10,000,000 or 2% of global turnover",
+    "important_entities": "EUR 7,000,000 or 1.4% of global turnover",
+    "government_organisations": "EUR 60,000 (essential) / EUR 30,000 (important)"
+  },
+  "sources": [
+    {
+      "title": "Wavestone - NIS 2 directive transposition status",
+      "url": "https://www.wavestone.com/en/insight/nis-2-european-countries-transposing-directive/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12"
+}

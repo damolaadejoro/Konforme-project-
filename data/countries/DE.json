@@ -1,0 +1,179 @@
+{
+  "country_code": "DE",
+  "country_name": "Germany",
+  "local_name": "Deutschland",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "transposed",
+  "transposition_confidence": "high",
+  "national_law": {
+    "name": "NIS-2-Umsetzungs- und Cybersicherheitsstaerkungsgesetz",
+    "short_name": "NIS2UmsG",
+    "formal_citation": "Gesetz zur Umsetzung der NIS-2-Richtlinie und zur Regelung wesentlicher Grundzuege des Informationssicherheitsmanagements in der Bundesverwaltung",
+    "primary_amended_law": "BSI-Gesetz (BSIG) - Act on the Federal Office for Information Security",
+    "law_number": "NIS2UmsG / NISG 2026",
+    "publication_date": "2025-12-05",
+    "official_gazette": "Bundesgesetzblatt (Federal Law Gazette)",
+    "gazette_url": "https://www.bgbl.de",
+    "entry_into_force": "2025-12-06",
+    "entry_into_force_note": "Day after publication; no general transitional period"
+  },
+  "legislative_history": [
+    {
+      "date": "2023-07",
+      "event": "First reference draft (Referentenentwurf) published by BMI"
+    },
+    {
+      "date": "2024-05",
+      "event": "Updated reference draft circulated"
+    },
+    {
+      "date": "2024-07-24",
+      "event": "Cabinet draft (Regierungsentwurf) approved by Bundeskabinett"
+    },
+    {
+      "date": "2024-10-17",
+      "event": "EU transposition deadline passed without enactment"
+    },
+    {
+      "date": "2024-11",
+      "event": "Coalition collapse; Bundestag dissolution; bill lapsed (Diskontinuitaetsprinzip)"
+    },
+    {
+      "date": "2024-11",
+      "event": "European Commission opens infringement proceedings"
+    },
+    {
+      "date": "2025-02-23",
+      "event": "Federal elections held"
+    },
+    {
+      "date": "2025-11",
+      "event": "Bundestag passes NIS2 Implementation Act"
+    },
+    {
+      "date": "2025-12-05",
+      "event": "Published in Bundesgesetzblatt"
+    },
+    {
+      "date": "2025-12-06",
+      "event": "Entry into force"
+    }
+  ],
+  "competent_authority": {
+    "name": "Bundesamt fuer Sicherheit in der Informationstechnik",
+    "acronym": "BSI",
+    "website": "https://www.bsi.bund.de",
+    "role": "National competent authority, CSIRT, Federal CISO, supervisory authority for private entities, defines minimum security requirements for federal authorities",
+    "nis2_page": "https://www.bsi.bund.de/EN/Themen/Regulierung-und-Warnung/NIS-2-Umsetzung/nis-2-umsetzung_node.html"
+  },
+  "csirt": {
+    "name": "CERT-Bund",
+    "website": "https://www.bsi.bund.de",
+    "parent": "BSI"
+  },
+  "scope": {
+    "estimated_entities": "~29,000 (up from ~4,500 under previous framework)",
+    "entity_types": ["besonders wichtige Einrichtungen (essential entities)", "wichtige Einrichtungen (important entities)"]
+  },
+  "entity_classification": {
+    "essential_entities": {
+      "german_term": "Besonders wichtige Einrichtungen",
+      "description": "Large enterprises in high-criticality sectors"
+    },
+    "important_entities": {
+      "german_term": "Wichtige Einrichtungen",
+      "description": "Medium enterprises in critical sectors"
+    }
+  },
+  "sectors_covered": [
+    "Energy",
+    "Transport",
+    "Financial services",
+    "Healthcare",
+    "Digital infrastructure",
+    "Waste management",
+    "Mechanical engineering",
+    "Research institutions",
+    "IT service providers",
+    "Electronics manufacturers",
+    "Space"
+  ],
+  "incident_reporting": {
+    "early_warning": "24 hours - initial notification to BSI",
+    "detailed_notification": "72 hours - detailed information including root-cause analysis",
+    "final_report": "1 month - final report with mitigation measures and preventive steps"
+  },
+  "penalties": {
+    "essential_entities": {
+      "maximum": "EUR 10,000,000 or 2% of worldwide annual turnover, whichever is higher"
+    },
+    "important_entities": {
+      "maximum": "EUR 7,000,000 or 1.4% of worldwide annual turnover, whichever is higher"
+    }
+  },
+  "compliance_deadlines": {
+    "registration_portal_open": "2026-01-06",
+    "registration_deadline": "2026-03-06 (3 months from entry into force)",
+    "corporate_account_setup": "End of 2025 (MUK via ELSTER certificates)",
+    "compliance_obligations": "Immediate from entry into force (no general transitional period)"
+  },
+  "management_liability": {
+    "applicable": true,
+    "description": "Expressly codifies responsibility at management level. Active monitoring of security measure implementation required. Training at least every 3 years with detailed documentation. Personal liability for key security decisions that cannot be fully delegated."
+  },
+  "supply_chain_requirements": {
+    "applicable": true,
+    "description": "Supply chain oversight and comprehensive documentation are integral components of Section 30 requirements"
+  },
+  "core_compliance": {
+    "legal_basis": "Section 30 BSIG",
+    "requirement": "Appropriate, effective, and proportionate technical and organizational measures establishing a systematically managed ISMS focusing on availability, integrity, and confidentiality of IT systems"
+  },
+  "infringement_proceedings": {
+    "ec_infringement_opened": "2024-11",
+    "ec_reasoned_opinion": "2025-05-07",
+    "status": "Resolved - law enacted December 2025"
+  },
+  "sources": [
+    {
+      "title": "Greenberg Traurig - NIS2 in Germany: The New BSI Act",
+      "url": "https://www.gtlaw.com/en/insights/2025/12/nis2-in-germany-the-new-bsi-act-makes-cybersecurity-a-board-level-issue",
+      "type": "law_firm_analysis",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Bundesregierung - Umsetzung der NIS-2-Richtlinie beschlossen",
+      "url": "https://www.bundesregierung.de/breg-de/aktuelles/nis-2-richtlinie-deutschland-2373174",
+      "type": "government_source",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Reed Smith - Finally: Germany enacts its NIS2 law",
+      "url": "https://www.reedsmith.com/our-insights/blogs/technology-law-dispatch/102lxfr/finally-germany-enacts-its-nis2-law/",
+      "type": "law_firm_analysis",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Bird & Bird - German Bundestag passes German NIS 2 Implementation Act",
+      "url": "https://www.twobirds.com/en/insights/2025/germany/german-bundestag-passes-german-nis-2-implementation-act",
+      "type": "law_firm_analysis",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Morrison Foerster - Flipping the NIS2 Switch",
+      "url": "https://www.mofo.com/resources/insights/251208-flipping-the-nis2-switch-what-germanys-implementation",
+      "type": "law_firm_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12",
+  "notes": [
+    "Germany missed original Oct 2024 deadline due to coalition collapse and snap elections",
+    "The bill had to be reintroduced after the February 2025 federal elections",
+    "No general transitional period - obligations apply immediately from entry into force",
+    "BSI registration portal opened January 6, 2026",
+    "ELSTER digital certificates required for corporate account (MUK) setup",
+    "Entities choose own security framework if sector-specific regulations don't apply"
+  ]
+}

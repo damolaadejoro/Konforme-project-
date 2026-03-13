@@ -42,6 +42,7 @@ backend-build:
     - aws ecr get-login-password --region ${AWS_DEFAULT_REGION}
       | docker login --username AWS --password-stdin ${ECR_REGISTRY}
   script:
+    - cp -r data/ konforme-backend/data/
     - docker build -t ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG} konforme-backend/
     - docker push ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}
   rules:
@@ -71,6 +72,7 @@ deploy-backend:
       # Run DB migrations and seed country data before restarting
       docker compose run --rm --no-deps backend alembic upgrade head
       docker compose run --rm --no-deps backend python scripts/seed_countries.py
+      docker compose run --rm --no-deps backend python scripts/seed_country_data.py
       docker compose up -d --no-deps backend
       echo "Waiting for health check..."
       for i in \$(seq 1 30); do

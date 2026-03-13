@@ -1,0 +1,54 @@
+{
+  "country_code": "CZ",
+  "country_name": "Czech Republic",
+  "local_name": "Cesko",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "transposed",
+  "transposition_confidence": "high",
+  "national_law": {
+    "name": "Law 759",
+    "entry_into_force": "2025-11-01",
+    "implementing_decrees": "Two implementing decrees specifying EE/EI measures"
+  },
+  "competent_authority": {
+    "name": "National Cyber and Information Security Agency",
+    "acronym": "NUKIB",
+    "website": "https://nukib.gov.cz"
+  },
+  "management_liability": {
+    "applicable": true,
+    "description": "Statutory bodies may be sanctioned. NUKIB may temporarily prohibit management from exercising functions for at least 6 months. Mandatory appointment of cybersecurity manager, architect, and auditor."
+  },
+  "incident_reporting": {
+    "early_warning": "24 hours",
+    "detailed_notification": "72 hours",
+    "final_report": "30 days",
+    "note": "Essential entities must report ALL incidents (not just significant ones) where intentional conduct cannot be ruled out"
+  },
+  "supply_chain_requirements": {
+    "applicable": true,
+    "description": "NUKIB has authority to request extensive supply chain information and may prohibit or restrict use of certain suppliers. Government can limit insecure supply chain products for entities of strategic importance."
+  },
+  "csirt": {
+    "name": "CERT-CZ",
+    "website": "https://nukib.gov.cz"
+  },
+  "compliance_deadlines": {
+    "registration": "60 days from entry into force (self-identification to NUKIB)",
+    "security_measures": "Up to 12 months from registration decision"
+  },
+  "penalties": {
+    "essential_entities": "CZK 250,000,000 (~EUR 10,300,000) or 2% of global annual turnover",
+    "important_entities": "CZK 175,000,000 (~EUR 7,200,000) or 1.4% of global annual turnover"
+  },
+  "sources": [
+    {
+      "title": "Wavestone - NIS 2 directive transposition status",
+      "url": "https://www.wavestone.com/en/insight/nis-2-european-countries-transposing-directive/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12"
+}

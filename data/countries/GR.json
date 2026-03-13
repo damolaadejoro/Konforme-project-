@@ -1,0 +1,67 @@
+{
+  "country_code": "GR",
+  "country_name": "Greece",
+  "local_name": "Ellada",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "transposed",
+  "transposition_confidence": "high",
+  "national_law": {
+    "name": "Law 5160/2024",
+    "publication_date": "2024-11-27",
+    "official_gazette": "Government Gazette (Ephimeris tis Kyverniseos)",
+    "entry_into_force": "2024-11-27"
+  },
+  "competent_authority": {
+    "name": "National Cybersecurity Authority",
+    "acronym": "NCSA",
+    "website": "https://cyber.gov.gr",
+    "supervisory_ministry": "Ministry of Digital Governance"
+  },
+  "compliance_deadlines": {
+    "entity_registration": "2025-09-30 (extended deadline)",
+    "icsso_officer_appointment": "Required under Law 5160/2024"
+  },
+  "penalties": {
+    "essential_entities": "Up to EUR 10,000,000 or 2% of global turnover",
+    "important_entities": "Up to EUR 7,000,000 or 1.4% of global turnover"
+  },
+  "framework": {
+    "name": "NCSA 22-Topic Cybersecurity Framework",
+    "description": "Comprehensive 22-topic cybersecurity compliance framework published by the National Cybersecurity Authority",
+    "topics": 22,
+    "published": "May 2025"
+  },
+  "requirements": {
+    "icsso": "Entities must appoint an Information and Communication Systems Security Officer (ICSSO)"
+  },
+  "management_liability": {
+    "applicable": true,
+    "description": "Managing directors and legal representatives may be temporarily prohibited from exercising functions. Board must approve cybersecurity measures within 3 months of law entry into force."
+  },
+  "incident_reporting": {
+    "early_warning": "24 hours",
+    "detailed_notification": "72 hours with interim updates on request",
+    "final_report": "30 days"
+  },
+  "csirt": {
+    "name": "NCSA-CSIRT",
+    "website": "https://cyber.gov.gr",
+    "note": "The NCSA itself serves as the national CSIRT"
+  },
+  "sources": [
+    {
+      "title": "EY Greece - Law 5160/2024 NIS2 Transposition",
+      "url": "https://www.ey.com/en_gr/technical/tax/tax-alerts/law-5160-2024-transposition-of-directive-nis-2",
+      "type": "professional_services",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "NCSA Greece",
+      "url": "https://cyber.gov.gr/en/",
+      "type": "government_source",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12"
+}

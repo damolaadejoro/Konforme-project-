@@ -1,0 +1,339 @@
+{
+  "metadata": {
+    "title": "NIS2 Directive (EU) 2022/2555 - EU Member State Transposition Tracker",
+    "description": "Comprehensive tracker of NIS2 transposition status across all 27 EU member states",
+    "directive": "Directive (EU) 2022/2555 of the European Parliament and of the Council of 14 December 2022",
+    "transposition_deadline": "2024-10-17",
+    "entity_identification_deadline": "2025-04-17",
+    "last_updated": "2026-03-12",
+    "total_member_states": 27,
+    "transposed_count": 20,
+    "not_transposed_count": 7,
+    "data_sources": [
+      "European Commission NIS2 transposition tracker (digital-strategy.ec.europa.eu)",
+      "ECSO NIS2 Directive Transposition Tracker (ecs-org.eu)",
+      "Wavestone NIS2 country analysis (wavestone.com)",
+      "ISMS.online NIS2 Country Tracker (isms.online)",
+      "National official gazettes and competent authority websites",
+      "Law firm analyses (multiple firms)"
+    ]
+  },
+  "summary_statistics": {
+    "transposed_by_deadline": 7,
+    "transposed_total_as_of_2026_03": 20,
+    "ec_infringement_reasoned_opinions": {
+      "date": "2025-05-07",
+      "count": 19,
+      "countries": ["BG", "CZ", "DK", "DE", "EE", "IE", "ES", "FR", "CY", "LV", "LU", "HU", "NL", "AT", "PL", "PT", "SI", "FI", "SE"]
+    }
+  },
+  "countries": [
+    {
+      "code": "AT",
+      "name": "Austria",
+      "status": "transposed",
+      "law": "NISG 2026",
+      "entry_into_force": "2026-10-01",
+      "authority": "TBD",
+      "confidence": "high",
+      "detail_level": "tier_2",
+      "file": "AT.json"
+    },
+    {
+      "code": "BE",
+      "name": "Belgium",
+      "status": "transposed",
+      "law": "Law of 26 April 2024 (CyFun)",
+      "entry_into_force": "2024-10-18",
+      "authority": "CCB",
+      "confidence": "high",
+      "detail_level": "tier_2",
+      "file": "BE.json"
+    },
+    {
+      "code": "BG",
+      "name": "Bulgaria",
+      "status": "not_transposed",
+      "law": null,
+      "entry_into_force": null,
+      "authority": null,
+      "confidence": "medium",
+      "detail_level": "tier_3",
+      "file": "BG.json"
+    },
+    {
+      "code": "HR",
+      "name": "Croatia",
+      "status": "transposed",
+      "law": "Cyber Security Act 14/2024",
+      "entry_into_force": "2024-02-15",
+      "authority": "NHCSC-HR",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "HR.json"
+    },
+    {
+      "code": "CY",
+      "name": "Cyprus",
+      "status": "transposed",
+      "law": "Cybersecurity Law amendment",
+      "entry_into_force": "2025-04-25",
+      "authority": "DSA",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "CY.json"
+    },
+    {
+      "code": "CZ",
+      "name": "Czech Republic",
+      "status": "transposed",
+      "law": "Law 759",
+      "entry_into_force": "2025-11-01",
+      "authority": "NUKIB",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "CZ.json"
+    },
+    {
+      "code": "DK",
+      "name": "Denmark",
+      "status": "transposed",
+      "law": "Cross-sectoral + sectoral laws",
+      "entry_into_force": "2025-07-01",
+      "authority": "CFCS",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "DK.json"
+    },
+    {
+      "code": "EE",
+      "name": "Estonia",
+      "status": "transposed",
+      "law": "Cybersecurity Act amendment",
+      "entry_into_force": "2026-01-01",
+      "authority": "TBD",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "EE.json"
+    },
+    {
+      "code": "FI",
+      "name": "Finland",
+      "status": "transposed",
+      "law": "Cybersecurity Law",
+      "entry_into_force": "2025-04-08",
+      "authority": "Sectoral authorities",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "FI.json"
+    },
+    {
+      "code": "FR",
+      "name": "France",
+      "status": "not_transposed",
+      "law": "Loi Resilience (pending)",
+      "entry_into_force": null,
+      "authority": "ANSSI",
+      "confidence": "high",
+      "detail_level": "tier_1",
+      "file": "FR.json"
+    },
+    {
+      "code": "DE",
+      "name": "Germany",
+      "status": "transposed",
+      "law": "NIS2UmsG / BSIG",
+      "entry_into_force": "2025-12-06",
+      "authority": "BSI",
+      "confidence": "high",
+      "detail_level": "tier_1",
+      "file": "DE.json"
+    },
+    {
+      "code": "GR",
+      "name": "Greece",
+      "status": "transposed",
+      "law": "Law 5160/2024",
+      "entry_into_force": "2024-11-27",
+      "authority": "NCSA",
+      "confidence": "high",
+      "detail_level": "tier_2",
+      "file": "GR.json"
+    },
+    {
+      "code": "HU",
+      "name": "Hungary",
+      "status": "transposed",
+      "law": "Acts LXIX, XXXII",
+      "entry_into_force": "2025-01-01",
+      "authority": "TBD",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "HU.json"
+    },
+    {
+      "code": "IE",
+      "name": "Ireland",
+      "status": "not_transposed",
+      "law": "National Cybersecurity Bill (pending)",
+      "entry_into_force": null,
+      "authority": "NCSC",
+      "confidence": "high",
+      "detail_level": "tier_2",
+      "file": "IE.json"
+    },
+    {
+      "code": "IT",
+      "name": "Italy",
+      "status": "transposed",
+      "law": "D.Lgs. 138/2024",
+      "entry_into_force": "2024-10-16",
+      "authority": "ACN",
+      "confidence": "high",
+      "detail_level": "tier_1",
+      "file": "IT.json"
+    },
+    {
+      "code": "LV",
+      "name": "Latvia",
+      "status": "transposed",
+      "law": "Cybersecurity Law",
+      "entry_into_force": "2024-09-01",
+      "authority": "NCSC",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "LV.json"
+    },
+    {
+      "code": "LT",
+      "name": "Lithuania",
+      "status": "transposed",
+      "law": "Law XII-1428",
+      "entry_into_force": "2024-10-17",
+      "authority": "NKSC",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "LT.json"
+    },
+    {
+      "code": "LU",
+      "name": "Luxembourg",
+      "status": "not_transposed",
+      "law": "Bill 8364 (pending)",
+      "entry_into_force": null,
+      "authority": "ILR",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "LU.json"
+    },
+    {
+      "code": "MT",
+      "name": "Malta",
+      "status": "transposed",
+      "law": "NIS 2 Ordinance (Legal Notice 71)",
+      "entry_into_force": "2025-04-08",
+      "authority": "CID",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "MT.json"
+    },
+    {
+      "code": "NL",
+      "name": "Netherlands",
+      "status": "not_transposed",
+      "law": "Cyberbeveiligingswet (pending)",
+      "entry_into_force": null,
+      "authority": "NCSC",
+      "confidence": "high",
+      "detail_level": "tier_2",
+      "file": "NL.json"
+    },
+    {
+      "code": "PL",
+      "name": "Poland",
+      "status": "transposed",
+      "law": "KSC Amendment (NIS2)",
+      "entry_into_force": "2026-02-19",
+      "authority": "Sectoral CSIRTs",
+      "confidence": "high",
+      "detail_level": "tier_2",
+      "file": "PL.json"
+    },
+    {
+      "code": "PT",
+      "name": "Portugal",
+      "status": "transposed",
+      "law": "DL 125/2025",
+      "entry_into_force": "2026-04-03",
+      "authority": "CNCS",
+      "confidence": "high",
+      "detail_level": "tier_1",
+      "file": "PT.json"
+    },
+    {
+      "code": "RO",
+      "name": "Romania",
+      "status": "transposed",
+      "law": "Emergency Ordinance 155/2024 + Laws 52/124/2025",
+      "entry_into_force": "2025-01-01",
+      "authority": "DNSC",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "RO.json"
+    },
+    {
+      "code": "SK",
+      "name": "Slovakia",
+      "status": "transposed",
+      "law": "Amendment to Law 69/2018",
+      "entry_into_force": "2025-01-01",
+      "authority": "NBU",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "SK.json"
+    },
+    {
+      "code": "SI",
+      "name": "Slovenia",
+      "status": "transposed",
+      "law": "ZInfV-1",
+      "entry_into_force": "2025-06-19",
+      "authority": "Government Office",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "SI.json"
+    },
+    {
+      "code": "ES",
+      "name": "Spain",
+      "status": "not_transposed",
+      "law": "Ley de Coordinacion y Gobernanza de la Ciberseguridad (pending)",
+      "entry_into_force": null,
+      "authority": "CCN-CERT / INCIBE",
+      "confidence": "high",
+      "detail_level": "tier_1",
+      "file": "ES.json"
+    },
+    {
+      "code": "SE",
+      "name": "Sweden",
+      "status": "transposed",
+      "law": "NIS2 Implementation Law",
+      "entry_into_force": "2026-01-15",
+      "authority": "TBD",
+      "confidence": "high",
+      "detail_level": "tier_3",
+      "file": "SE.json"
+    }
+  ],
+  "tier_definitions": {
+    "tier_1": "Full detailed research with multiple verified sources, comprehensive penalty/reporting/deadline data. Countries: PT, ES, FR, DE, IT",
+    "tier_2": "Moderate detail with verified law status, authority, key dates. Countries: BE, NL, AT, IE, PL, GR",
+    "tier_3": "Basic verified status with law name and authority. Countries: remaining EU27"
+  },
+  "not_transposed_as_of_2026_03_12": {
+    "countries": ["ES", "FR", "NL", "IE", "LU", "BG"],
+    "note": "Spain and France are the largest economies that have not yet transposed. Netherlands has plenary debate scheduled March 23, 2026. Ireland delayed by elections. Luxembourg and Bulgaria in earlier legislative stages.",
+    "possible_seventh": "Bulgaria status is less certain - first reading occurred Feb 2025 but adoption not confirmed"
+  }
+}

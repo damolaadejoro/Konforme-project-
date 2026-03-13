@@ -1,0 +1,68 @@
+{
+  "country_code": "BE",
+  "country_name": "Belgium",
+  "local_name": "Belgique / Belgie",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "transposed",
+  "transposition_confidence": "high",
+  "national_law": {
+    "name": "Law of 26 April 2024 establishing a framework for the cybersecurity of networks and information systems of general interest for public security",
+    "short_name": "NIS2 Law / CyFun Law",
+    "law_number": "Law of 26 April 2024",
+    "publication_date": "2024-04-26",
+    "official_gazette": "Belgisch Staatsblad / Moniteur Belge",
+    "entry_into_force": "2024-10-18",
+    "implementing_decree": "Royal Decree of 9 June 2024"
+  },
+  "competent_authority": {
+    "name": "Centre for Cybersecurity Belgium",
+    "acronym": "CCB",
+    "website": "https://ccb.belgium.be",
+    "role": "National cybersecurity authority and national CSIRT",
+    "nis2_page": "https://ccb.belgium.be/regulation/nis2",
+    "compliance_portal": "https://atwork.safeonweb.be/nis2"
+  },
+  "framework": {
+    "name": "CyberFundamentals Framework (CyFun)",
+    "description": "Set of concrete measures to protect data, reduce risk of common cyber attacks, and increase cyber resilience",
+    "levels": ["Basic", "Important", "Essential"],
+    "note": "All organisations in NIS2 supply chains advised to comply with CyFun Basic level minimum"
+  },
+  "compliance_deadlines": {
+    "entity_registration": "2025-03-18 (essential/important entities)",
+    "digital_sector_deadline": "2024-12-18 (digital sector entities)",
+    "self_assessment_due": "2026-04-18 (CyFun AL Basic/Important or ISO 27001 policy)"
+  },
+  "scope": {
+    "essential_entities_registered": "~1,500 (by March 2025)",
+    "important_entities_registered": "~2,500 (by March 2025)"
+  },
+  "sources": [
+    {
+      "title": "CCB - NIS2 Regulation",
+      "url": "https://ccb.belgium.be/regulation/nis2",
+      "type": "government_source",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "CCB SafeOnWeb - The NIS2 Law",
+      "url": "https://atwork.safeonweb.be/nis2",
+      "type": "government_source",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Wavestone - NIS 2 directive transposition status",
+      "url": "https://www.wavestone.com/en/insight/nis-2-european-countries-transposing-directive/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12",
+  "notes": [
+    "Belgium was among the first EU countries to transpose NIS2",
+    "CyberFundamentals (CyFun) framework is the primary compliance mechanism",
+    "CCB operates SafeOnWeb portal for entity guidance",
+    "Self-assessment of CyFun level or ISO 27001 compliance due by April 18, 2026"
+  ]
+}

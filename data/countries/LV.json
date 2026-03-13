@@ -1,0 +1,46 @@
+{
+  "country_code": "LV",
+  "country_name": "Latvia",
+  "local_name": "Latvija",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "transposed",
+  "transposition_confidence": "high",
+  "national_law": {
+    "name": "Cybersecurity Law",
+    "entry_into_force": "2024-09-01",
+    "entry_into_force_note": "Transposed ahead of EU deadline",
+    "minimum_requirements_regulation": "Effective 2025-07-02"
+  },
+  "competent_authority": {
+    "name": "National Cybersecurity Centre",
+    "acronym": "NCSC-LV"
+  },
+  "management_liability": {
+    "applicable": true,
+    "description": "Executives can be held personally liable with management disqualification clause. Cybersecurity manager must be appointed with relevant certifications and at least 2 years of experience handling cyber incidents."
+  },
+  "csirt": {
+    "name": "CERT.LV",
+    "website": "https://www.cert.lv"
+  },
+  "compliance_deadlines": {
+    "registration": "2025-04-01 (self-assessment of status)",
+    "cybersecurity_officer_appointment": "2025-10-01",
+    "first_self_assessment": "2025-10-01"
+  },
+  "penalties": {
+    "essential_entities": "EUR 10,000,000 or 2% of annual turnover",
+    "important_entities": "EUR 500,000 or 1.4% of annual turnover (significantly lower than EU baseline)",
+    "public_bodies": "Exempt from monetary penalties"
+  },
+  "sources": [
+    {
+      "title": "Wavestone - NIS 2 directive transposition status",
+      "url": "https://www.wavestone.com/en/insight/nis-2-european-countries-transposing-directive/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12"
+}

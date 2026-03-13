@@ -1,0 +1,149 @@
+{
+  "country_code": "FR",
+  "country_name": "France",
+  "local_name": "France",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "not_transposed",
+  "transposition_confidence": "high",
+  "legislative_status": "advanced_parliamentary_review",
+  "national_law": {
+    "name": "Loi relative a la resilience des infrastructures critiques et au renforcement de la cybersecurite",
+    "short_name": "Loi Resilience",
+    "formal_citation": "Projet de loi relatif a la resilience des infrastructures critiques et au renforcement de la cybersecurite",
+    "law_number": null,
+    "publication_date": null,
+    "official_gazette": "Journal Officiel de la Republique Francaise",
+    "gazette_url": null,
+    "entry_into_force": null,
+    "status_note": "Senate adopted March 12, 2025. National Assembly special commission adopted September 17, 2025. Plenary debate not yet scheduled. Expected adoption and publication Q1-Q2 2026, possibly delayed to July 2026."
+  },
+  "legislative_timeline": [
+    {
+      "date": "2024-10-15",
+      "event": "Senate adopted the bill in first reading"
+    },
+    {
+      "date": "2025-03-04",
+      "event": "Senate Special Commission report No. 393 published"
+    },
+    {
+      "date": "2025-03-12",
+      "event": "Senate adopted the bill in plenary session"
+    },
+    {
+      "date": "2025-05-07",
+      "event": "European Commission sent reasoned opinion for failure to transpose"
+    },
+    {
+      "date": "2025-09-17",
+      "event": "National Assembly special commission unanimously adopted the text"
+    },
+    {
+      "date": "2026-01",
+      "event": "Expected: Loi Resilience signed and published in Journal Officiel (delayed)"
+    },
+    {
+      "date": "2026-Q2",
+      "event": "Expected: ANSSI to release implementing decrees (decrets d'application)"
+    }
+  ],
+  "competent_authority": {
+    "name": "Agence nationale de la securite des systemes d'information",
+    "acronym": "ANSSI",
+    "website": "https://www.anssi.gouv.fr",
+    "role": "Central national cybersecurity authority, entity list management, enforcement oversight, incident treatment, threat monitoring",
+    "nis2_portal": "https://aide.monespacenis2.cyber.gouv.fr"
+  },
+  "csirt": {
+    "name": "CERT-FR",
+    "website": "https://www.cert.ssi.gouv.fr",
+    "parent": "ANSSI"
+  },
+  "scope": {
+    "estimated_entities": "~15,000 essential and important entities (up from ~500 under NIS1)",
+    "territorial_collectivities": "~1,500 collectivites territoriales and higher education establishments",
+    "private_enterprises_essential": "~2,000"
+  },
+  "entity_classification": {
+    "essential_entities": {
+      "description": "Entities in highly critical sectors with 250+ employees or EUR 50M+ revenue or EUR 43M+ assets"
+    },
+    "important_entities": {
+      "description": "Entities in critical/highly critical sectors with 50+ employees or EUR 10M+ revenue"
+    }
+  },
+  "incident_reporting": {
+    "note": "Expected to align with NIS2 standard upon adoption",
+    "expected_timelines": {
+      "early_warning": "24 hours",
+      "incident_notification": "72 hours",
+      "final_report": "1 month"
+    }
+  },
+  "penalties": {
+    "note": "To be specified in final law and implementing decrees",
+    "expected": {
+      "essential_entities": "Up to EUR 10,000,000 or 2% of global annual turnover",
+      "important_entities": "Up to EUR 7,000,000 or 1.4% of global annual turnover"
+    }
+  },
+  "cyber_threat_context": {
+    "anssi_2024_stats": "218 cyber incidents affecting territorial collectivities (18/month avg)",
+    "avg_costs": {
+      "sme": "EUR 466,000",
+      "midmarket": "EUR 13,000,000",
+      "large_enterprise": "EUR 135,000,000"
+    }
+  },
+  "infringement_proceedings": {
+    "ec_reasoned_opinion": "2025-05-07",
+    "status": "Reasoned opinion sent; legislative process ongoing"
+  },
+  "senate_report": {
+    "rapporteurs": ["Michel Canevet", "Patrick Chaize", "Hugues Saury"],
+    "report_number": "393",
+    "url": "https://www.senat.fr/rap/l24-393/l24-3931.html"
+  },
+  "sources": [
+    {
+      "title": "Senat - Projet de loi relatif a la resilience des infrastructures critiques",
+      "url": "https://www.senat.fr/rap/l24-393/l24-3931.html",
+      "type": "parliamentary_source",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Vie Publique - Projet de loi resilience infrastructures critiques cybersecurite",
+      "url": "https://www.vie-publique.fr/loi/295752-projet-de-loi-resilience-infrastructures-critiques-cybersecurite",
+      "type": "government_source",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "ANSSI MonEspaceNIS2 FAQ",
+      "url": "https://aide.monespacenis2.cyber.gouv.fr/fr/article/avancement-de-la-transposition-de-la-directive-nis-2-1b3j1da/",
+      "type": "government_source",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Banque des Territoires - NIS2 transposition repoussee a juillet",
+      "url": "https://www.banquedesterritoires.fr/directive-nis2-la-transposition-francaise-probablement-repoussee-juillet",
+      "type": "news",
+      "accessed": "2026-03-12"
+    },
+    {
+      "title": "Wavestone - NIS 2 directive transposition status",
+      "url": "https://www.wavestone.com/en/insight/nis-2-european-countries-transposing-directive/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12",
+  "notes": [
+    "France has NOT yet fully transposed NIS2 as of March 2026",
+    "The 'Loi Resilience' bundles NIS2 with CER directive transposition",
+    "Senate adopted; National Assembly plenary debate not yet scheduled",
+    "French transposition likely delayed to July 2026",
+    "ANSSI already operating MonEspaceNIS2 beta portal for entity registration",
+    "Digital Minister Anne Le Henanff has been pressed on scheduling urgency"
+  ]
+}

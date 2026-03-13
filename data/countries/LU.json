@@ -1,0 +1,35 @@
+{
+  "country_code": "LU",
+  "country_name": "Luxembourg",
+  "local_name": "Luxembourg",
+  "eu_member": true,
+  "directive_reference": "Directive (EU) 2022/2555",
+  "transposition_status": "not_transposed",
+  "transposition_confidence": "high",
+  "legislative_status": "parliamentary_review",
+  "national_law": {
+    "name": "Bill 8364",
+    "status_note": "Deposited in Chamber of Deputies on March 13, 2024. Awaiting adoption. Expected early 2026."
+  },
+  "competent_authority": {
+    "name": "Institut Luxembourgeois de Regulation",
+    "acronym": "ILR"
+  },
+  "scope": {
+    "estimated_entities": "6,000-8,000 by Q1 2026",
+    "registration_portal": "ILR portal, self-registration due by April 2026"
+  },
+  "infringement_proceedings": {
+    "ec_reasoned_opinion": "2025-05-07",
+    "status": "Active"
+  },
+  "sources": [
+    {
+      "title": "Wavestone - NIS 2 directive transposition status",
+      "url": "https://www.wavestone.com/en/insight/nis-2-european-countries-transposing-directive/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-12"
+    }
+  ],
+  "last_verified": "2026-03-12"
+}
