@@ -28,7 +28,7 @@ def upgrade() -> None:
         sa.Column("owner", sa.String(200), server_default="", nullable=False),
         sa.Column("due_date", sa.Date, nullable=True),
         sa.Column("notes", sa.Text, server_default="", nullable=False),
-        sa.Column("is_country_specific", sa.Boolean, server_default="0", nullable=False),
+        sa.Column("is_country_specific", sa.Boolean, server_default=sa.text("false"), nullable=False),
         sa.Column("last_updated", sa.DateTime, server_default=sa.func.now(), nullable=False),
         sa.UniqueConstraint("account_id", "control_id", name="uq_account_controls_account_control"),
     )
