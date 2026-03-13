@@ -76,11 +76,86 @@ def _get_country_question_weights(account: Account, db: Session) -> dict[str, fl
     return {r.base_question_id: r.weight for r in rows}
 
 
-def _get_latest_scan(db: Session, account_id: str, aws_account_id: str | None = None) -> Scan | None:
+def _get_latest_scan(
+    db: Session,
+    account_id: str,
+    aws_account_id: str | None = None,
+    credential_id: str | None = None,
+) -> Scan | None:
     q = db.query(Scan).filter(Scan.account_id == account_id, Scan.status == "complete")
-    if aws_account_id:
+    if credential_id:
+        q = q.filter(Scan.cloud_credential_id == credential_id)
+    elif aws_account_id:
         q = q.filter(Scan.aws_account_id == aws_account_id)
     return q.order_by(Scan.completed_at.desc()).first()
+
+
+def _get_latest_scans_per_provider(db: Session, account_id: str) -> list[Scan]:
+    """Get the latest completed scan for each AWS account and cloud credential."""
+    from sqlalchemy import func, and_
+
+    scans: list[Scan] = []
+
+    # Latest scan per AWS account
+    aws_subq = (
+        db.query(
+            Scan.aws_account_id,
+            func.max(Scan.completed_at).label("max_completed"),
+        )
+        .filter(
+            Scan.account_id == account_id,
+            Scan.status == "complete",
+            Scan.aws_account_id.isnot(None),
+        )
+        .group_by(Scan.aws_account_id)
+        .subquery()
+    )
+    aws_scans = (
+        db.query(Scan)
+        .join(
+            aws_subq,
+            and_(
+                Scan.aws_account_id == aws_subq.c.aws_account_id,
+                Scan.completed_at == aws_subq.c.max_completed,
+            ),
+        )
+        .all()
+    )
+    scans.extend(aws_scans)
+
+    # Latest scan per cloud credential (Azure etc.)
+    cred_subq = (
+        db.query(
+            Scan.cloud_credential_id,
+            func.max(Scan.completed_at).label("max_completed"),
+        )
+        .filter(
+            Scan.account_id == account_id,
+            Scan.status == "complete",
+            Scan.cloud_credential_id.isnot(None),
+            Scan.aws_account_id.is_(None),  # Exclude AWS scans that also have credential_id
+        )
+        .group_by(Scan.cloud_credential_id)
+        .subquery()
+    )
+    cred_scans = (
+        db.query(Scan)
+        .join(
+            cred_subq,
+            and_(
+                Scan.cloud_credential_id == cred_subq.c.cloud_credential_id,
+                Scan.completed_at == cred_subq.c.max_completed,
+            ),
+        )
+        .all()
+    )
+    # Avoid duplicates
+    seen_ids = {s.id for s in scans}
+    for s in cred_scans:
+        if s.id not in seen_ids:
+            scans.append(s)
+
+    return scans
 
 
 def _get_latest_assessment(db: Session, account_id: str) -> AssessmentVersion | None:
@@ -125,22 +200,39 @@ def _article_breakdown_from_assessment(
     return {a["article"]: a["score"] for a in scores["article_scores"] if a["score"] > 0}
 
 
-@router.get("/score/{account_id}", response_model=CombinedScoreResponse)
-def get_combined_score(
-    account_id: str,
-    aws_account_id: str | None = Query(None),
-    account: Account = Depends(get_current_account),
-    db: Session = Depends(get_db),
-):
-    enforce_account_access(account, account_id)
+def _build_score_response(
+    db: Session,
+    account: Account,
+    scans: list[Scan],
+    assessment: AssessmentVersion | None,
+    tw: float,
+    hw: float,
+    country_weights: dict[str, float] | None,
+) -> CombinedScoreResponse:
+    """Build a CombinedScoreResponse from one or more scans + optional assessment."""
 
-    tw, hw = _get_weights(account)
-    country_weights = _get_country_question_weights(account, db)
+    # Aggregate technical score across all scans (weighted average by check count)
+    tech_score: float | None = None
+    last_scan_time: str | None = None
+    all_scan_results: list[ScanResult] = []
 
-    scan = _get_latest_scan(db, account_id, aws_account_id)
-    assessment = _get_latest_assessment(db, account_id)
+    if scans:
+        total_weighted = 0.0
+        total_checks = 0
+        latest_completed = None
+        for scan in scans:
+            if scan.overall_score is not None and scan.total_checks > 0:
+                total_weighted += scan.overall_score * scan.total_checks
+                total_checks += scan.total_checks
+            results = db.query(ScanResult).filter(ScanResult.scan_id == scan.id).all()
+            all_scan_results.extend(results)
+            if scan.completed_at and (latest_completed is None or scan.completed_at > latest_completed):
+                latest_completed = scan.completed_at
 
-    tech_score = scan.overall_score if scan else None
+        if total_checks > 0:
+            tech_score = round(total_weighted / total_checks, 1)
+        last_scan_time = latest_completed.isoformat() if latest_completed else None
+
     human_score = assessment.overall_score if assessment else None
 
     overall = None
@@ -151,12 +243,11 @@ def get_combined_score(
     elif human_score is not None:
         overall = human_score
 
-    # Build per-article breakdown
+    # Build per-article breakdown from all scan results
     all_articles: dict[str, dict] = {}
 
-    if scan:
-        scan_results = db.query(ScanResult).filter(ScanResult.scan_id == scan.id).all()
-        tech_breakdown = _article_breakdown_from_scan(scan_results)
+    if all_scan_results:
+        tech_breakdown = _article_breakdown_from_scan(all_scan_results)
         for article, data in tech_breakdown.items():
             t_score = round((data["pass_w"] / data["total_w"]) * 100, 1) if data["total_w"] > 0 else None
             all_articles[article] = {
@@ -170,7 +261,6 @@ def get_combined_score(
     if assessment:
         human_breakdown = _article_breakdown_from_assessment(assessment, country_weights)
         for article, h_score in human_breakdown.items():
-            # Find article title
             art_title = ""
             for art_def in ARTICLES:
                 if art_def["article"] == article:
@@ -188,7 +278,6 @@ def get_combined_score(
             else:
                 all_articles[article]["humanScore"] = h_score
 
-    # Compute combined per-article
     for data in all_articles.values():
         t = data["technicalScore"]
         h = data["humanScore"]
@@ -203,7 +292,7 @@ def get_combined_score(
         overallScore=overall,
         technicalScore=tech_score,
         humanFactorScore=human_score,
-        lastTechnicalScan=scan.completed_at.isoformat() if scan and scan.completed_at else None,
+        lastTechnicalScan=last_scan_time,
         lastHumanAssessment=assessment.submitted_at.isoformat() if assessment else None,
         technicalWeight=tw,
         humanWeight=hw,
@@ -212,10 +301,36 @@ def get_combined_score(
     )
 
 
+@router.get("/score/{account_id}", response_model=CombinedScoreResponse)
+def get_combined_score(
+    account_id: str,
+    aws_account_id: str | None = Query(None),
+    credential_id: str | None = Query(None),
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    enforce_account_access(account, account_id)
+
+    tw, hw = _get_weights(account)
+    country_weights = _get_country_question_weights(account, db)
+    assessment = _get_latest_assessment(db, account_id)
+
+    if aws_account_id or credential_id:
+        # Single provider/account filter — return score for just that one
+        scan = _get_latest_scan(db, account_id, aws_account_id, credential_id)
+        scans = [scan] if scan else []
+    else:
+        # Aggregate across ALL providers: latest scan per AWS account + per credential
+        scans = _get_latest_scans_per_provider(db, account_id)
+
+    return _build_score_response(db, account, scans, assessment, tw, hw, country_weights)
+
+
 @router.get("/report/{account_id}", response_model=ReportResponse)
 def get_report(
     account_id: str,
     aws_account_id: str | None = Query(None),
+    credential_id: str | None = Query(None),
     account: Account = Depends(get_current_account),
     db: Session = Depends(get_db),
 ):
@@ -223,7 +338,11 @@ def get_report(
 
     tw, hw = _get_weights(account)
 
-    scan = _get_latest_scan(db, account_id, aws_account_id)
+    if aws_account_id or credential_id:
+        scan = _get_latest_scan(db, account_id, aws_account_id, credential_id)
+    else:
+        # For reports, use the latest single scan (aggregation is in score endpoint)
+        scan = _get_latest_scan(db, account_id)
     assessment = _get_latest_assessment(db, account_id)
 
     tech_score = scan.overall_score if scan else None

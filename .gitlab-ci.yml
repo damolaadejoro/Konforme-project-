@@ -68,8 +68,9 @@ deploy-backend:
       docker pull \$ECR_REPO:${IMAGE_TAG}
       docker tag \$ECR_REPO:${IMAGE_TAG} \$ECR_REPO:latest
       cd /opt/konforme
-      # Run DB migrations before restarting
+      # Run DB migrations and seed country data before restarting
       docker compose run --rm --no-deps backend alembic upgrade head
+      docker compose run --rm --no-deps backend python scripts/seed_countries.py
       docker compose up -d --no-deps backend
       echo "Waiting for health check..."
       for i in \$(seq 1 30); do

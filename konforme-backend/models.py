@@ -341,3 +341,68 @@ class CountryAssessmentQuestion(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
     country: Mapped["Country"] = relationship(back_populates="assessment_questions")
+
+
+# --- Per-account control state ---
+
+
+class AccountControl(Base):
+    __tablename__ = "account_controls"
+    __table_args__ = (
+        UniqueConstraint("account_id", "control_id", name="uq_account_controls_account_control"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
+    account_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    control_id: Mapped[str] = mapped_column(String(100), nullable=False)  # e.g. "ctrl-001"
+    status: Mapped[str] = mapped_column(String(20), default="Not Started")
+    owner: Mapped[str] = mapped_column(String(255), default="")
+    due_date: Mapped[str | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    is_country_specific: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_updated: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+    account: Mapped["Account"] = relationship()
+
+
+class ControlCampaign(Base):
+    __tablename__ = "control_campaigns"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
+    account_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    control_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    control_name: Mapped[str] = mapped_column(String(500), nullable=False)
+    task_type: Mapped[str] = mapped_column(String(20), nullable=False)  # acknowledge | quiz
+    deadline: Mapped[str] = mapped_column(String(20), nullable=False)
+    policy_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    account: Mapped["Account"] = relationship()
+    tasks: Mapped[list["CampaignTask"]] = relationship(
+        back_populates="campaign", cascade="all, delete-orphan"
+    )
+
+
+class CampaignTask(Base):
+    __tablename__ = "campaign_tasks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
+    campaign_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("control_campaigns.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    control_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    employee_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    employee_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    department: Mapped[str] = mapped_column(String(255), default="")
+    task_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    sent_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    completed_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deadline: Mapped[str] = mapped_column(String(20), nullable=False)
+    score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    campaign: Mapped["ControlCampaign"] = relationship(back_populates="tasks")

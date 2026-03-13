@@ -565,3 +565,86 @@ class SetCountryRequest(BaseModel):
 
     country_code: str
     entity_tier: str | None = None
+
+
+# --- Account Controls ---
+
+
+class AccountControlItem(BaseModel):
+    control_id: str
+    status: str = "Not Started"
+    owner: str = ""
+    due_date: str | None = None
+    notes: str = ""
+    is_country_specific: bool = False
+
+
+class AccountControlResponse(BaseModel):
+    id: str
+    controlId: str
+    status: str
+    owner: str
+    dueDate: str | None
+    notes: str
+    isCountrySpecific: bool
+    lastUpdated: str
+
+
+class AccountControlBulkRequest(BaseModel):
+    controls: list[AccountControlItem]
+
+
+class AccountControlUpdate(BaseModel):
+    status: str | None = None
+    owner: str | None = None
+    due_date: str | None = None
+    notes: str | None = None
+
+
+# --- Campaigns ---
+
+
+class CampaignEmployeeItem(BaseModel):
+    employee_name: str
+    employee_email: str
+    department: str = ""
+
+
+class CreateCampaignRequest(BaseModel):
+    control_id: str
+    control_name: str
+    task_type: str
+    deadline: str
+    employees: list[CampaignEmployeeItem]
+    policy_content: str | None = None
+
+
+class CampaignTaskResponse(BaseModel):
+    id: str
+    controlId: str
+    campaignId: str
+    employeeName: str
+    employeeEmail: str
+    department: str
+    taskType: str
+    status: str
+    sentDate: str
+    completedDate: str | None
+    deadline: str
+    score: int | None = None
+
+
+class CampaignResponse(BaseModel):
+    id: str
+    controlId: str
+    controlName: str
+    taskType: str
+    deadline: str
+    createdAt: str
+    policyContent: str | None = None
+    tasks: list[CampaignTaskResponse]
+
+
+class CampaignTaskUpdate(BaseModel):
+    status: str | None = None
+    score: int | None = None

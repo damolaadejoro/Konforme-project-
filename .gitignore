@@ -4,6 +4,12 @@
 .env.production
 .env.*.local
 
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -13,3 +19,8 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# SSH keys
+*.pub
+yes
+yes.pub

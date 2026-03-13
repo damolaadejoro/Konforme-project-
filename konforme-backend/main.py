@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from config import settings
 from database import Base, engine, run_migrations
 from rate_limit import limiter
-from routers import accounts, assessment, cloud_credentials, countries, evidence, remediation, scans, score
+from routers import accounts, assessment, cloud_credentials, controls, countries, evidence, remediation, scans, score
 from routers import settings as settings_router
 from routers.auth_router import router as auth_router
 
@@ -101,6 +101,7 @@ app.include_router(assessment.router, prefix="/api/v1", tags=["Assessment"])
 app.include_router(score.router, prefix="/api/v1", tags=["Score & Report"])
 app.include_router(remediation.router, prefix="/api/v1", tags=["Remediation"])
 app.include_router(evidence.router, prefix="/api/v1", tags=["Evidence"])
+app.include_router(controls.router, prefix="/api/v1", tags=["Controls"])
 app.include_router(settings_router.router, prefix="/api/v1", tags=["Settings"])
 
 

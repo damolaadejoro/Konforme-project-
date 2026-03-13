@@ -105,6 +105,12 @@ def _extract_csirt_url(data: dict) -> str | None:
     return None
 
 
+EU_DEFAULT_PENALTIES = {
+    "essential": {"maximum": "EUR 10,000,000 or 2% of annual global turnover, whichever is higher"},
+    "important": {"maximum": "EUR 7,000,000 or 1.4% of annual global turnover, whichever is higher"},
+}
+
+
 def _extract_entity_tiers(data: dict) -> list[dict]:
     """Extract entity tier data from the JSON structure."""
     tiers = []
@@ -159,6 +165,9 @@ def _extract_entity_tiers(data: dict) -> list[dict]:
                     elif isinstance(pv, str):
                         tier_penalties = {"maximum": pv}
 
+        # Fall back to NIS2 EU defaults when country data has no penalties
+        if not tier_penalties and tier_key in EU_DEFAULT_PENALTIES:
+            tier_penalties = EU_DEFAULT_PENALTIES[tier_key]
         tier_data["penalties"] = tier_penalties
 
         # Extract incident reporting as obligations
@@ -179,6 +188,10 @@ def _extract_entity_tiers(data: dict) -> list[dict]:
                             tier_penalties = pv
                         elif isinstance(pv, str):
                             tier_penalties = {"maximum": pv}
+
+            # Fall back to NIS2 EU defaults when country data has no penalties
+            if not tier_penalties and tk in EU_DEFAULT_PENALTIES:
+                tier_penalties = EU_DEFAULT_PENALTIES[tk]
 
             tiers.append({
                 "tier_key": tk,
@@ -245,16 +258,49 @@ def _extract_sectors(data: dict) -> list[str]:
     return sectors
 
 
+# NIS2 Directive EU-level default sectors
+EU_ANNEX_I_SECTORS = [
+    "Energy", "Transport", "Banking", "Financial market infrastructures",
+    "Health", "Drinking water", "Waste water", "Digital infrastructure",
+    "ICT service management", "Space", "Public administration",
+]
+EU_ANNEX_II_SECTORS = [
+    "Postal and courier services", "Waste management", "Chemicals",
+    "Food", "Manufacturing", "Digital providers", "Research",
+]
+
+
 def _extract_sectors_for_tier(data: dict, tier_key: str) -> list[str]:
     """Extract sectors specific to a tier based on NIS2 classification.
 
     - Essential: Annex I (high criticality) sectors — large enterprises in these sectors
     - Important: Annex I + Annex II sectors — medium-sized enterprises
     - Public Admin: National additions (e.g. public administration)
+
+    Falls back to EU-level Annex I/II defaults when country data is empty.
     """
     sc = data.get("sectors_covered", {})
     if not isinstance(sc, dict):
-        return _extract_sectors(data)
+        flat = _extract_sectors(data)
+        if flat:
+            # Flat list = country's known sectors (treated as Annex I / high-criticality)
+            if tier_key == "essential":
+                return flat
+            elif tier_key == "important":
+                # Important covers both Annex I + II; add EU Annex II defaults
+                annex_ii_extra = [s for s in EU_ANNEX_II_SECTORS if s not in flat]
+                return flat + annex_ii_extra
+            elif tier_key == "public_admin":
+                return ["Public administration"]
+            return flat
+        # Fall back to EU defaults
+        if tier_key == "essential":
+            return list(EU_ANNEX_I_SECTORS)
+        elif tier_key == "important":
+            return list(EU_ANNEX_I_SECTORS) + list(EU_ANNEX_II_SECTORS)
+        elif tier_key == "public_admin":
+            return ["Public administration"]
+        return list(EU_ANNEX_I_SECTORS)
 
     annex_i = []
     annex_ii = []
@@ -278,10 +324,10 @@ def _extract_sectors_for_tier(data: dict, tier_key: str) -> list[str]:
 
     if tier_key == "essential":
         # Essential entities: Annex I high-criticality sectors
-        return annex_i if annex_i else _extract_sectors(data)
+        return annex_i if annex_i else _extract_sectors(data) or list(EU_ANNEX_I_SECTORS)
     elif tier_key == "important":
         # Important entities: Annex I + Annex II sectors
-        return (annex_i + annex_ii) if (annex_i or annex_ii) else _extract_sectors(data)
+        return (annex_i + annex_ii) if (annex_i or annex_ii) else _extract_sectors(data) or (list(EU_ANNEX_I_SECTORS) + list(EU_ANNEX_II_SECTORS))
     elif tier_key == "public_admin":
         # Public admin: national additions, or if none specified, all sectors
         return national if national else ["Public administration"]
