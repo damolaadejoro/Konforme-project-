@@ -99,6 +99,15 @@ def add_aws_account(
         req.aws_access_key_id, req.aws_secret_access_key, req.aws_session_token, req.region
     )
 
+    # Prevent duplicate: same AWS account ID already linked to this Konforme account
+    existing = db.query(AwsAccount).filter(
+        AwsAccount.account_id == account.id,
+        AwsAccount.aws_account_id == aws_account_id,
+        AwsAccount.is_active == True,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="This AWS account is already connected")
+
     aws_acc = AwsAccount(
         account_id=account.id,
         alias=req.alias,
