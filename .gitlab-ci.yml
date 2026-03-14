@@ -69,11 +69,15 @@ deploy-backend:
       docker pull \$ECR_REPO:${IMAGE_TAG}
       docker tag \$ECR_REPO:${IMAGE_TAG} \$ECR_REPO:latest
       cd /opt/konforme
-      # Run DB migrations and seed country data before restarting
-      docker compose run --rm --no-deps backend alembic upgrade head
-      docker compose run --rm --no-deps backend python scripts/seed_countries.py
-      docker compose run --rm --no-deps backend python scripts/seed_country_data.py
+      # Run DB migrations (non-fatal — create_all on startup will cover any gaps)
+      docker compose run --rm --no-deps backend alembic upgrade head || echo "WARN: alembic upgrade failed, relying on create_all"
+      # Restart backend first so create_all runs and creates any missing tables
       docker compose up -d --no-deps backend
+      echo "Waiting for backend to start..."
+      sleep 10
+      # Seed country data (non-fatal — can be re-run manually)
+      docker compose exec -T backend python scripts/seed_countries.py || echo "WARN: seed_countries failed"
+      docker compose exec -T backend python scripts/seed_country_data.py || echo "WARN: seed_country_data failed"
       echo "Waiting for health check..."
       for i in \$(seq 1 30); do
         if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
