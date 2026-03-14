@@ -69,12 +69,21 @@ deploy-backend:
       docker pull \$ECR_REPO:${IMAGE_TAG}
       docker tag \$ECR_REPO:${IMAGE_TAG} \$ECR_REPO:latest
       cd /opt/konforme
+      # Debug: show current compose config and running containers
+      echo "=== Current docker-compose.yml ==="
+      cat docker-compose.yml
+      echo "=== Running containers ==="
+      docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
       # Run DB migrations (non-fatal — create_all on startup will cover any gaps)
       docker compose run --rm --no-deps backend alembic upgrade head || echo "WARN: alembic upgrade failed, relying on create_all"
-      # Restart backend first so create_all runs and creates any missing tables
-      docker compose up -d --no-deps backend
+      # Force pull latest image and recreate container
+      docker compose pull backend || true
+      docker compose up -d --force-recreate --no-deps backend
       echo "Waiting for backend to start..."
       sleep 10
+      # Verify new code is running
+      echo "=== Backend container ==="
+      docker ps --filter name=backend --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
       # Seed country data (non-fatal — can be re-run manually)
       docker compose exec -T backend python scripts/seed_countries.py || echo "WARN: seed_countries failed"
       docker compose exec -T backend python scripts/seed_country_data.py || echo "WARN: seed_country_data failed"
