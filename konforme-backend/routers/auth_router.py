@@ -1,5 +1,7 @@
+import threading
 from datetime import datetime, timedelta, timezone
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
@@ -90,6 +92,28 @@ def _generate_csrf_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+def _notify_signup(name: str, email: str, country: str | None):
+    """Fire-and-forget POST to webhook URL on new signup."""
+    url = settings.signup_webhook_url
+    if not url:
+        return
+
+    def _send():
+        try:
+            country_text = country or "Not set"
+            ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+            # Slack-compatible payload (also works with Discord /slack endpoint)
+            payload = {
+                "text": f"New Konforme signup: *{name}* ({email}) — Country: {country_text} — {ts}",
+            }
+            httpx.post(url, json=payload, timeout=5)
+        except Exception:
+            pass  # non-critical, never block registration
+
+    threading.Thread(target=_send, daemon=True).start()
+
+
 @router.post("/auth/register", response_model=AuthResponse)
 @limiter.limit("3/minute")
 def register(req: RegisterRequest, request: Request, response: Response, db: Session = Depends(get_db)):
@@ -114,6 +138,9 @@ def register(req: RegisterRequest, request: Request, response: Response, db: Ses
     refresh_token = create_refresh_token(account.id)
     csrf_token = _generate_csrf_token()
     log_register(account.id, account.email)
+
+    # Fire-and-forget webhook notification
+    _notify_signup(account.name, account.email, account.country)
 
     _set_auth_cookies(response, access_token, refresh_token, csrf_token)
 

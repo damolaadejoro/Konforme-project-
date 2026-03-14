@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     database_pool_timeout: int = 30
     upload_dir: str = "/data/evidence"
     max_upload_size_mb: int = 10
+    signup_webhook_url: str = ""
 
     @property
     def origins_list(self) -> list[str]:
