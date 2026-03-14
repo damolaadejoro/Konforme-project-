@@ -75,7 +75,7 @@ deploy-backend:
       echo "=== Running containers ==="
       docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
       # Run DB migrations (non-fatal — create_all on startup will cover any gaps)
-      docker compose run -T --rm --no-deps backend alembic upgrade head || echo "WARN: alembic upgrade failed, relying on create_all"
+      docker compose run -T --rm --no-deps backend alembic upgrade head < /dev/null || echo "WARN: alembic upgrade failed, relying on create_all"
       # Force pull latest image and recreate container
       docker compose pull backend || true
       docker compose up -d --force-recreate --no-deps backend
