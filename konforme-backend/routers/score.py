@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
@@ -14,7 +13,7 @@ from assessment_questions import (
 )
 from auth import enforce_account_access, get_current_account
 from database import get_db
-from models import Account, AssessmentVersion, Country, CountryAssessmentQuestion, Scan, ScanResult
+from models import Account, AccountControl, AssessmentVersion, Country, CountryAssessmentQuestion, CountryControl, Scan, ScanResult
 from scanner.nis2_mapping import NIS2_MAPPING
 from schemas import (
     ArticleBreakdown,
@@ -26,23 +25,101 @@ from schemas import (
 
 router = APIRouter()
 
-DEFAULT_TECHNICAL_WEIGHT = 0.60
-DEFAULT_HUMAN_WEIGHT = 0.40
-
-
-def _get_weights(account: Account) -> tuple[float, float]:
-    """Read scoring weights from account config, falling back to defaults."""
-    if account.scoring_config:
-        try:
-            cfg = json.loads(account.scoring_config)
-            tw = cfg.get("technical_weight", DEFAULT_TECHNICAL_WEIGHT)
-            hw = cfg.get("organizational_weight", DEFAULT_HUMAN_WEIGHT)
-            return tw, hw
-        except (json.JSONDecodeError, TypeError):
-            pass
-    return DEFAULT_TECHNICAL_WEIGHT, DEFAULT_HUMAN_WEIGHT
-
 SEVERITY_WEIGHTS = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+
+# --- 3-pillar scoring constants ---
+
+PILLAR_TECH_W = 0.40
+PILLAR_ASSESS_W = 0.35
+PILLAR_CONTROLS_W = 0.25
+
+CONTROL_SEVERITY_MAP: dict[str, str] = {
+    "ctrl-001": "critical",
+    "ctrl-002": "critical",
+    "ctrl-003": "high",
+    "ctrl-004": "high",
+    "ctrl-005": "critical",
+    "ctrl-006": "high",
+    "ctrl-007": "critical",
+    "ctrl-008": "high",
+    "ctrl-009": "critical",
+    "ctrl-010": "critical",
+    "ctrl-011": "critical",
+    "ctrl-012": "critical",
+    "ctrl-013": "high",
+    "ctrl-014": "high",
+    "ctrl-015": "high",
+    "ctrl-016": "high",
+    "ctrl-017": "critical",
+    "ctrl-018": "high",
+    "ctrl-019": "high",
+    "ctrl-020": "high",
+    "ctrl-021": "medium",
+    "ctrl-022": "high",
+    "ctrl-023": "critical",
+    "ctrl-024": "high",
+    "ctrl-025": "high",
+    "ctrl-026": "critical",
+    "ctrl-027": "high",
+    "ctrl-028": "high",
+}
+
+CTRL_STATUS_WEIGHTS: dict[str, float] = {
+    "Not Started": 0,
+    "Planned": 0.25,
+    "Partial": 0.5,
+    "Implemented": 1.0,
+}
+
+CTRL_SEVERITY_WEIGHTS: dict[str, int] = {"critical": 3, "high": 2, "medium": 1}
+
+
+def _compute_controls_score(db: Session, account_id: str, account: Account) -> float | None:
+    """Compute a weighted controls implementation score (0-100) or None if no controls.
+
+    Considers both the base 28 controls and any country-specific additional controls
+    derived from the account's selected country.
+    """
+    rows = db.query(AccountControl).filter(AccountControl.account_id == account_id).all()
+    saved_statuses: dict[str, str] = {r.control_id: r.status for r in rows}
+
+    # Start with the base 28 controls — always present
+    all_control_ids = list(CONTROL_SEVERITY_MAP.keys())
+
+    # Add country-specific additional controls if the account has a country
+    if account.country_id:
+        country = db.query(Country).filter(Country.id == account.country_id).first()
+        if country:
+            additional_qs = (
+                db.query(CountryAssessmentQuestion)
+                .filter(
+                    CountryAssessmentQuestion.country_id == account.country_id,
+                    CountryAssessmentQuestion.is_additional.is_(True),
+                )
+                .all()
+            )
+            for i, _q in enumerate(additional_qs, 1):
+                ctrl_id = f"country-ctrl-{country.code.lower()}-{i}"
+                all_control_ids.append(ctrl_id)
+
+    if not all_control_ids:
+        return None
+
+    weighted_sum = 0.0
+    total_weight = 0.0
+    for ctrl_id in all_control_ids:
+        # Country-specific controls (not in the base map) default to "high"
+        # to match frontend behaviour in useControls.ts
+        severity = CONTROL_SEVERITY_MAP.get(ctrl_id, "high")
+        sev_w = CTRL_SEVERITY_WEIGHTS.get(severity, 1)
+        status = saved_statuses.get(ctrl_id, "Not Started")
+        status_w = CTRL_STATUS_WEIGHTS.get(status, 0)
+        weighted_sum += status_w * sev_w
+        total_weight += sev_w
+
+    if total_weight == 0:
+        return None
+    return round(weighted_sum / total_weight * 100, 1)
 
 
 def _grade(score: float | None) -> str | None:
@@ -205,11 +282,10 @@ def _build_score_response(
     account: Account,
     scans: list[Scan],
     assessment: AssessmentVersion | None,
-    tw: float,
-    hw: float,
+    controls_score: float | None,
     country_weights: dict[str, float] | None,
 ) -> CombinedScoreResponse:
-    """Build a CombinedScoreResponse from one or more scans + optional assessment."""
+    """Build a CombinedScoreResponse from one or more scans + optional assessment + controls."""
 
     # Aggregate technical score across all scans (weighted average by check count)
     tech_score: float | None = None
@@ -235,13 +311,16 @@ def _build_score_response(
 
     human_score = assessment.overall_score if assessment else None
 
-    overall = None
-    if tech_score is not None and human_score is not None:
-        overall = round(tech_score * tw + human_score * hw, 1)
-    elif tech_score is not None:
-        overall = tech_score
-    elif human_score is not None:
-        overall = human_score
+    # 3-pillar proportional weighting
+    pillars: list[tuple[float, float]] = []
+    if tech_score is not None and tech_score > 0:
+        pillars.append((tech_score, PILLAR_TECH_W))
+    if human_score is not None and human_score > 0:
+        pillars.append((human_score, PILLAR_ASSESS_W))
+    if controls_score is not None and controls_score > 0:
+        pillars.append((controls_score, PILLAR_CONTROLS_W))
+    total_w = sum(w for _, w in pillars)
+    overall = round(sum(s * w for s, w in pillars) / total_w) if total_w > 0 else None
 
     # Build per-article breakdown from all scan results
     all_articles: dict[str, dict] = {}
@@ -282,7 +361,7 @@ def _build_score_response(
         t = data["technicalScore"]
         h = data["humanScore"]
         if t is not None and h is not None:
-            data["combinedScore"] = round(t * tw + h * hw, 1)
+            data["combinedScore"] = round(t * PILLAR_TECH_W + h * PILLAR_ASSESS_W, 1)
         elif t is not None:
             data["combinedScore"] = t
         elif h is not None:
@@ -292,10 +371,13 @@ def _build_score_response(
         overallScore=overall,
         technicalScore=tech_score,
         humanFactorScore=human_score,
+        controlsScore=controls_score,
         lastTechnicalScan=last_scan_time,
         lastHumanAssessment=assessment.submitted_at.isoformat() if assessment else None,
-        technicalWeight=tw,
-        humanWeight=hw,
+        technicalWeight=PILLAR_TECH_W,
+        humanWeight=PILLAR_ASSESS_W,
+        assessmentWeight=PILLAR_ASSESS_W,
+        controlsWeight=PILLAR_CONTROLS_W,
         grade=_grade(overall),
         articleBreakdown=[ArticleBreakdown(**d) for d in all_articles.values()],
     )
@@ -311,9 +393,9 @@ def get_combined_score(
 ):
     enforce_account_access(account, account_id)
 
-    tw, hw = _get_weights(account)
     country_weights = _get_country_question_weights(account, db)
     assessment = _get_latest_assessment(db, account_id)
+    controls_score = _compute_controls_score(db, account_id, account)
 
     if aws_account_id or credential_id:
         # Single provider/account filter — return score for just that one
@@ -323,7 +405,7 @@ def get_combined_score(
         # Aggregate across ALL providers: latest scan per AWS account + per credential
         scans = _get_latest_scans_per_provider(db, account_id)
 
-    return _build_score_response(db, account, scans, assessment, tw, hw, country_weights)
+    return _build_score_response(db, account, scans, assessment, controls_score, country_weights)
 
 
 @router.get("/report/{account_id}", response_model=ReportResponse)
@@ -336,24 +418,27 @@ def get_report(
 ):
     enforce_account_access(account, account_id)
 
-    tw, hw = _get_weights(account)
-
     if aws_account_id or credential_id:
         scan = _get_latest_scan(db, account_id, aws_account_id, credential_id)
     else:
         # For reports, use the latest single scan (aggregation is in score endpoint)
         scan = _get_latest_scan(db, account_id)
     assessment = _get_latest_assessment(db, account_id)
+    controls_score = _compute_controls_score(db, account_id, account)
 
     tech_score = scan.overall_score if scan else None
     human_score = assessment.overall_score if assessment else None
-    overall = None
-    if tech_score is not None and human_score is not None:
-        overall = round(tech_score * tw + human_score * hw, 1)
-    elif tech_score is not None:
-        overall = tech_score
-    elif human_score is not None:
-        overall = human_score
+
+    # 3-pillar proportional weighting
+    pillars: list[tuple[float, float]] = []
+    if tech_score is not None and tech_score > 0:
+        pillars.append((tech_score, PILLAR_TECH_W))
+    if human_score is not None and human_score > 0:
+        pillars.append((human_score, PILLAR_ASSESS_W))
+    if controls_score is not None and controls_score > 0:
+        pillars.append((controls_score, PILLAR_CONTROLS_W))
+    total_w = sum(w for _, w in pillars)
+    overall = round(sum(s * w for s, w in pillars) / total_w) if total_w > 0 else None
 
     critical_actions: list[ReportAction] = []
     warnings: list[ReportAction] = []

@@ -398,10 +398,13 @@ class CombinedScoreResponse(BaseModel):
     overallScore: float | None
     technicalScore: float | None
     humanFactorScore: float | None
+    controlsScore: float | None = None
     lastTechnicalScan: str | None
     lastHumanAssessment: str | None
     technicalWeight: float
     humanWeight: float
+    assessmentWeight: float = 0.35
+    controlsWeight: float = 0.25
     grade: str | None
     articleBreakdown: list[ArticleBreakdown]
 
