@@ -110,11 +110,17 @@ def bulk_upsert_controls(
                 pass
 
         if item.control_id in existing:
+            # Only update if the incoming data has meaningful changes
+            # (skip if it's just a default seed with "Not Started")
             ac = existing[item.control_id]
-            ac.status = item.status
-            ac.owner = item.owner
-            ac.due_date = parsed_date
-            ac.notes = item.notes
+            if item.status != "Not Started" or ac.status == "Not Started":
+                ac.status = item.status
+            if item.owner:
+                ac.owner = item.owner
+            if parsed_date:
+                ac.due_date = parsed_date
+            if item.notes:
+                ac.notes = item.notes
             ac.is_country_specific = item.is_country_specific
         else:
             ac = AccountControl(
