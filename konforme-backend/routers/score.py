@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
@@ -72,6 +73,22 @@ CTRL_STATUS_WEIGHTS: dict[str, float] = {
 }
 
 CTRL_SEVERITY_WEIGHTS: dict[str, int] = {"critical": 3, "high": 2, "medium": 1}
+
+
+def _get_account_weights(account: Account) -> tuple[float, float, float]:
+    """Read 3-pillar weights from account.scoring_config, falling back to defaults."""
+    if account.scoring_config:
+        try:
+            cfg = json.loads(account.scoring_config)
+            if "assessment_weight" in cfg:
+                return (
+                    cfg.get("technical_weight", PILLAR_TECH_W),
+                    cfg.get("assessment_weight", PILLAR_ASSESS_W),
+                    cfg.get("controls_weight", PILLAR_CONTROLS_W),
+                )
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return PILLAR_TECH_W, PILLAR_ASSESS_W, PILLAR_CONTROLS_W
 
 
 def _compute_controls_score(db: Session, account_id: str, account: Account) -> float | None:
@@ -287,6 +304,9 @@ def _build_score_response(
 ) -> CombinedScoreResponse:
     """Build a CombinedScoreResponse from one or more scans + optional assessment + controls."""
 
+    # Read user-configured weights (or defaults)
+    w_tech, w_assess, w_controls = _get_account_weights(account)
+
     # Aggregate technical score across all scans (weighted average by check count)
     tech_score: float | None = None
     last_scan_time: str | None = None
@@ -311,14 +331,14 @@ def _build_score_response(
 
     human_score = assessment.overall_score if assessment else None
 
-    # 3-pillar proportional weighting
+    # 3-pillar proportional weighting using user-configured weights
     pillars: list[tuple[float, float]] = []
     if tech_score is not None and tech_score > 0:
-        pillars.append((tech_score, PILLAR_TECH_W))
+        pillars.append((tech_score, w_tech))
     if human_score is not None and human_score > 0:
-        pillars.append((human_score, PILLAR_ASSESS_W))
+        pillars.append((human_score, w_assess))
     if controls_score is not None and controls_score > 0:
-        pillars.append((controls_score, PILLAR_CONTROLS_W))
+        pillars.append((controls_score, w_controls))
     total_w = sum(w for _, w in pillars)
     overall = round(sum(s * w for s, w in pillars) / total_w) if total_w > 0 else None
 
@@ -361,7 +381,7 @@ def _build_score_response(
         t = data["technicalScore"]
         h = data["humanScore"]
         if t is not None and h is not None:
-            data["combinedScore"] = round(t * PILLAR_TECH_W + h * PILLAR_ASSESS_W, 1)
+            data["combinedScore"] = round(t * w_tech + h * w_assess, 1)
         elif t is not None:
             data["combinedScore"] = t
         elif h is not None:
@@ -374,10 +394,10 @@ def _build_score_response(
         controlsScore=controls_score,
         lastTechnicalScan=last_scan_time,
         lastHumanAssessment=assessment.submitted_at.isoformat() if assessment else None,
-        technicalWeight=PILLAR_TECH_W,
-        humanWeight=PILLAR_ASSESS_W,
-        assessmentWeight=PILLAR_ASSESS_W,
-        controlsWeight=PILLAR_CONTROLS_W,
+        technicalWeight=w_tech,
+        humanWeight=w_assess,
+        assessmentWeight=w_assess,
+        controlsWeight=w_controls,
         grade=_grade(overall),
         articleBreakdown=[ArticleBreakdown(**d) for d in all_articles.values()],
     )
@@ -429,14 +449,15 @@ def get_report(
     tech_score = scan.overall_score if scan else None
     human_score = assessment.overall_score if assessment else None
 
-    # 3-pillar proportional weighting
+    # 3-pillar proportional weighting using user-configured weights
+    w_tech, w_assess, w_controls = _get_account_weights(account)
     pillars: list[tuple[float, float]] = []
     if tech_score is not None and tech_score > 0:
-        pillars.append((tech_score, PILLAR_TECH_W))
+        pillars.append((tech_score, w_tech))
     if human_score is not None and human_score > 0:
-        pillars.append((human_score, PILLAR_ASSESS_W))
+        pillars.append((human_score, w_assess))
     if controls_score is not None and controls_score > 0:
-        pillars.append((controls_score, PILLAR_CONTROLS_W))
+        pillars.append((controls_score, w_controls))
     total_w = sum(w for _, w in pillars)
     overall = round(sum(s * w for s, w in pillars) / total_w) if total_w > 0 else None
 

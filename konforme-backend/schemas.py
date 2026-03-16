@@ -414,14 +414,14 @@ class CombinedScoreResponse(BaseModel):
 class ScoringConfig(BaseModel):
     model_config = {"extra": "forbid"}
 
-    technical_weight: float = Field(default=0.6, ge=0.0, le=1.0)
-    organizational_weight: float = Field(default=0.4, ge=0.0, le=1.0)
-    domain_weights: dict | None = None  # Reserved for future use
-    preset: str | None = None  # Reserved for future use
+    technical_weight: float = Field(default=0.40, ge=0.0, le=1.0)
+    assessment_weight: float = Field(default=0.35, ge=0.0, le=1.0)
+    controls_weight: float = Field(default=0.25, ge=0.0, le=1.0)
+    preset: str | None = None
 
     @model_validator(mode="after")
     def weights_must_sum_to_one(self):
-        total = self.technical_weight + self.organizational_weight
+        total = self.technical_weight + self.assessment_weight + self.controls_weight
         if not (0.99 <= total <= 1.01):
             raise ValueError("Weights must sum to 1.0")
         return self
@@ -429,15 +429,15 @@ class ScoringConfig(BaseModel):
 
 class ScoringConfigResponse(BaseModel):
     technicalWeight: float
-    organizationalWeight: float
-    domainWeights: dict | None = None
+    assessmentWeight: float
+    controlsWeight: float
     preset: str | None = None
 
 
 class ScoringConfigUpdateResponse(BaseModel):
     technicalWeight: float
-    organizationalWeight: float
-    domainWeights: dict | None = None
+    assessmentWeight: float
+    controlsWeight: float
     preset: str | None = None
     previewOverallScore: float | None = None
     previewGrade: str | None = None
