@@ -1,3 +1,4 @@
+import enum
 import uuid
 from datetime import datetime, timezone
 
@@ -5,6 +6,12 @@ from sqlalchemy import Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
+
+
+class UserRole(str, enum.Enum):
+    owner = "owner"
+    admin = "admin"
+    member = "member"
 
 
 def _utcnow() -> datetime:
@@ -21,22 +28,47 @@ class Account(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     api_key_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)
-    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     country: Mapped[str | None] = mapped_column(String(2), nullable=True)  # ISO 3166-1 alpha-2
     language: Mapped[str | None] = mapped_column(String(5), nullable=True, default="en")  # ISO 639-1
     country_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("countries.id"), nullable=True)
     entity_tier_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("entity_tiers.id"), nullable=True)
     scoring_config: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON: {"technical_weight": 0.6, ...}
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     connected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     aws_accounts: Mapped[list["AwsAccount"]] = relationship(back_populates="account", cascade="all, delete-orphan")
     scans: Mapped[list["Scan"]] = relationship(back_populates="account", cascade="all, delete-orphan")
     assessments: Mapped[list["Assessment"]] = relationship(back_populates="account", cascade="all, delete-orphan")
     evidence_files: Mapped[list["Evidence"]] = relationship(back_populates="account", cascade="all, delete-orphan")
+    users: Mapped[list["User"]] = relationship(back_populates="account", cascade="all, delete-orphan")
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
+    account_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)  # null for pending invites
+    role: Mapped[str] = mapped_column(String(20), default=UserRole.member.value, nullable=False)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    email_verification_token: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    invite_token: Mapped[str | None] = mapped_column(String(36), nullable=True, unique=True)
+    invite_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    password_reset_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    password_reset_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+    account: Mapped["Account"] = relationship(back_populates="users")
 
 
 class CloudCredential(Base):
@@ -404,5 +436,6 @@ class CampaignTask(Base):
     completed_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     deadline: Mapped[str] = mapped_column(String(20), nullable=False)
     score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    completion_token: Mapped[str | None] = mapped_column(String(36), nullable=True, unique=True)
 
     campaign: Mapped["ControlCampaign"] = relationship(back_populates="tasks")

@@ -1,13 +1,17 @@
 """CRUD endpoints for per-account control state and employee campaigns."""
 
+import uuid
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from auth import enforce_account_access, get_current_account
+from config import settings
 from database import get_db
+from email_service import send_campaign_task_email
 from models import Account, AccountControl, CampaignTask, ControlCampaign
+from rate_limit import limiter
 from schemas import (
     AccountControlBulkRequest,
     AccountControlResponse,
@@ -227,7 +231,10 @@ def create_campaign(
     db.add(campaign)
     db.flush()
 
+    base_url = settings.frontend_base_url
+
     for emp in req.employees:
+        completion_token = str(uuid.uuid4())
         task = CampaignTask(
             campaign_id=campaign.id,
             control_id=req.control_id,
@@ -236,8 +243,24 @@ def create_campaign(
             department=emp.department,
             task_type=req.task_type,
             deadline=req.deadline,
+            completion_token=completion_token,
         )
         db.add(task)
+        db.flush()
+
+        # Send task email (best-effort)
+        completion_url = f"{base_url}/task/complete/{completion_token}"
+        task_desc = f"{req.task_type}: {req.control_name}"
+        try:
+            send_campaign_task_email(
+                email=emp.employee_email,
+                employee_name=emp.employee_name,
+                task_description=task_desc,
+                completion_url=completion_url,
+                deadline=req.deadline,
+            )
+        except Exception:
+            pass  # non-critical
 
     db.commit()
     db.refresh(campaign)
@@ -273,3 +296,47 @@ def update_campaign_task(
     db.commit()
     db.refresh(task)
     return _task_to_response(task)
+
+
+# ---------------------------------------------------------------------------
+# Public task completion (no auth required)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/campaigns/tasks/complete/{token}")
+@limiter.limit("10/minute")
+def complete_task_by_token(token: str, request: Request, db: Session = Depends(get_db)):
+    """Public endpoint — mark a campaign task as completed via unique token."""
+    task = db.query(CampaignTask).filter(CampaignTask.completion_token == token).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found or already completed")
+
+    if task.status == "completed":
+        return {"detail": "Task already completed", "task_id": task.id}
+
+    task.status = "completed"
+    task.completed_date = datetime.now(timezone.utc)
+    task.completion_token = None  # Invalidate token after use
+    db.commit()
+
+    return {"detail": "Task completed successfully", "task_id": task.id}
+
+
+@router.get("/campaigns/tasks/complete/{token}")
+def get_task_by_token(token: str, db: Session = Depends(get_db)):
+    """Public endpoint — get task info for the completion page."""
+    task = db.query(CampaignTask).filter(CampaignTask.completion_token == token).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found or already completed")
+
+    campaign = db.query(ControlCampaign).filter(ControlCampaign.id == task.campaign_id).first()
+
+    return {
+        "task_id": task.id,
+        "employee_name": task.employee_name,
+        "task_type": task.task_type,
+        "control_name": campaign.control_name if campaign else "",
+        "deadline": task.deadline,
+        "status": task.status,
+        "policy_content": campaign.policy_content if campaign else None,
+    }

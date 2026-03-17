@@ -55,6 +55,40 @@ def run_migrations(eng):
                 conn.execute(text("ALTER TABLE accounts ADD COLUMN entity_tier_id VARCHAR(36)"))
             if "scoring_config" not in existing:
                 conn.execute(text("ALTER TABLE accounts ADD COLUMN scoring_config TEXT"))
+            if "email_verified" not in existing:
+                conn.execute(text("ALTER TABLE accounts ADD COLUMN email_verified BOOLEAN DEFAULT false"))
+            # email_verification_token removed from accounts (now on users table only)
+
+    # Users table — created by migration 006 but ensure it exists for non-Alembic setups
+    if "users" not in inspector.get_table_names():
+        with eng.begin() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id VARCHAR(36) PRIMARY KEY,
+                    account_id VARCHAR(36) NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+                    name VARCHAR(255) NOT NULL,
+                    email VARCHAR(255) UNIQUE NOT NULL,
+                    password_hash VARCHAR(255),
+                    role VARCHAR(20) DEFAULT 'member' NOT NULL,
+                    email_verified BOOLEAN DEFAULT false NOT NULL,
+                    email_verification_token VARCHAR(36),
+                    invite_token VARCHAR(36) UNIQUE,
+                    invite_accepted_at TIMESTAMP,
+                    is_active BOOLEAN DEFAULT true NOT NULL,
+                    failed_login_attempts INTEGER DEFAULT 0 NOT NULL,
+                    locked_until TIMESTAMP,
+                    password_reset_token VARCHAR(64),
+                    password_reset_expires TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+                )
+            """))
+
+    if "campaign_tasks" in inspector.get_table_names():
+        existing = {c["name"] for c in inspector.get_columns("campaign_tasks")}
+        with eng.begin() as conn:
+            if "completion_token" not in existing:
+                conn.execute(text("ALTER TABLE campaign_tasks ADD COLUMN completion_token VARCHAR(36)"))
 
     if "scans" in inspector.get_table_names():
         existing = {c["name"] for c in inspector.get_columns("scans")}

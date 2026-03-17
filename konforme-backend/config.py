@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     max_upload_size_mb: int = 10
     signup_webhook_url: str = ""
 
+    # AWS SES email settings
+    aws_ses_access_key_id: str = ""
+    aws_ses_secret_access_key: str = ""
+    aws_ses_region: str = "eu-west-1"
+    sender_email: str = ""
+    frontend_base_url: str = "http://localhost:5173"
+
     @property
     def origins_list(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]

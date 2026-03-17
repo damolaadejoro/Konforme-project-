@@ -22,10 +22,16 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class ResetPasswordRequest(BaseModel):
+class ForgotPasswordRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
     email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    token: str
     new_password: str
 
 
@@ -35,8 +41,11 @@ class AuthResponse(BaseModel):
     account_id: str
     account_name: str
     email: str
+    email_verified: bool = False
     country: str | None = None
     language: str | None = "en"
+    user_id: str | None = None
+    role: str | None = None
 
 
 # --- AWS Account ---
@@ -651,3 +660,38 @@ class CampaignResponse(BaseModel):
 class CampaignTaskUpdate(BaseModel):
     status: str | None = None
     score: int | None = None
+
+
+# --- Team ---
+
+
+class InviteRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    emails: list[EmailStr]
+    role: str = "member"  # "admin" | "member"
+
+
+class AcceptInviteRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    token: str
+    name: str
+    password: str
+
+
+class TeamMemberResponse(BaseModel):
+    id: str
+    name: str
+    email: str
+    role: str
+    emailVerified: bool
+    isActive: bool
+    inviteAccepted: bool
+    createdAt: str
+
+
+class UpdateMemberRoleRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    role: str  # "admin" | "member"

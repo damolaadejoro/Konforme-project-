@@ -11,15 +11,24 @@ from database import Base, engine, run_migrations
 from rate_limit import limiter
 from routers import accounts, assessment, cloud_credentials, controls, countries, evidence, remediation, scans, score
 from routers import settings as settings_router
+from routers import team
 from routers.auth_router import router as auth_router
 
 # Paths exempt from CSRF validation (login/register need to work without a prior CSRF token)
 CSRF_EXEMPT_PATHS = {
     "/api/v1/auth/login",
     "/api/v1/auth/register",
+    "/api/v1/auth/forgot-password",
     "/api/v1/auth/reset-password",
+    "/api/v1/auth/verify-email",
     "/api/v1/auth/refresh",
+    "/api/v1/team/accept-invite",
 }
+
+# Dynamic CSRF exemption for paths with tokens
+CSRF_EXEMPT_PREFIXES = (
+    "/api/v1/campaigns/tasks/complete/",
+)
 
 CSRF_METHODS = {"POST", "PATCH", "DELETE", "PUT"}
 
@@ -32,7 +41,9 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next):
-        if request.method in CSRF_METHODS and request.url.path not in CSRF_EXEMPT_PATHS:
+        path = request.url.path
+        is_exempt = path in CSRF_EXEMPT_PATHS or any(path.startswith(p) for p in CSRF_EXEMPT_PREFIXES)
+        if request.method in CSRF_METHODS and not is_exempt:
             cookie_token = request.cookies.get("csrf_token")
             header_token = request.headers.get("x-csrf-token")
             if not cookie_token or not header_token or not secrets.compare_digest(cookie_token, header_token):
@@ -103,6 +114,7 @@ app.include_router(remediation.router, prefix="/api/v1", tags=["Remediation"])
 app.include_router(evidence.router, prefix="/api/v1", tags=["Evidence"])
 app.include_router(controls.router, prefix="/api/v1", tags=["Controls"])
 app.include_router(settings_router.router, prefix="/api/v1", tags=["Settings"])
+app.include_router(team.router, prefix="/api/v1", tags=["Team"])
 
 
 @app.get("/health")
