@@ -71,8 +71,10 @@ def run_migrations(eng):
                     password_hash VARCHAR(255),
                     role VARCHAR(20) DEFAULT 'member' NOT NULL,
                     email_verified BOOLEAN DEFAULT false NOT NULL,
-                    email_verification_token VARCHAR(36),
-                    invite_token VARCHAR(36) UNIQUE,
+                    email_verification_token VARCHAR(64),
+                    email_verification_expires TIMESTAMP,
+                    invite_token VARCHAR(64) UNIQUE,
+                    invite_expires TIMESTAMP,
                     invite_accepted_at TIMESTAMP,
                     is_active BOOLEAN DEFAULT true NOT NULL,
                     failed_login_attempts INTEGER DEFAULT 0 NOT NULL,
@@ -95,8 +97,11 @@ def run_migrations(eng):
                 conn.execute(text("ALTER TABLE users ADD COLUMN invite_expires TIMESTAMP"))
             # Widen token columns for secrets.token_urlsafe(32) (~43 chars)
             if is_postgres:
-                conn.execute(text("ALTER TABLE users ALTER COLUMN email_verification_token TYPE VARCHAR(64)"))
-                conn.execute(text("ALTER TABLE users ALTER COLUMN invite_token TYPE VARCHAR(64)"))
+                try:
+                    conn.execute(text("ALTER TABLE users ALTER COLUMN email_verification_token TYPE VARCHAR(64)"))
+                    conn.execute(text("ALTER TABLE users ALTER COLUMN invite_token TYPE VARCHAR(64)"))
+                except Exception:
+                    pass  # Already correct width or unsupported
 
     if "campaign_tasks" in inspector.get_table_names():
         existing = {c["name"] for c in inspector.get_columns("campaign_tasks")}
@@ -104,7 +109,10 @@ def run_migrations(eng):
             if "completion_token" not in existing:
                 conn.execute(text("ALTER TABLE campaign_tasks ADD COLUMN completion_token VARCHAR(64)"))
             elif is_postgres:
-                conn.execute(text("ALTER TABLE campaign_tasks ALTER COLUMN completion_token TYPE VARCHAR(64)"))
+                try:
+                    conn.execute(text("ALTER TABLE campaign_tasks ALTER COLUMN completion_token TYPE VARCHAR(64)"))
+                except Exception:
+                    pass
 
     if "scans" in inspector.get_table_names():
         existing = {c["name"] for c in inspector.get_columns("scans")}
