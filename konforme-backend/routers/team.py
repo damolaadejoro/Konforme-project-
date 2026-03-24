@@ -110,7 +110,7 @@ def accept_invite_redirect(token: str, request: Request, db: Session = Depends(g
         raise HTTPException(status_code=400, detail="Invalid or expired invitation token")
 
     # Check token expiry
-    if user.invite_expires and user.invite_expires < datetime.now(timezone.utc):
+    if user.invite_expires and (user.invite_expires.replace(tzinfo=timezone.utc) if user.invite_expires.tzinfo is None else user.invite_expires) < datetime.now(timezone.utc):
         user.invite_token = None
         user.invite_expires = None
         db.commit()
@@ -138,7 +138,7 @@ def accept_invite(req: AcceptInviteRequest, request: Request, db: Session = Depe
         raise HTTPException(status_code=400, detail="Invitation has already been accepted")
 
     # Check token expiry
-    if user.invite_expires and user.invite_expires < datetime.now(timezone.utc):
+    if user.invite_expires and (user.invite_expires.replace(tzinfo=timezone.utc) if user.invite_expires.tzinfo is None else user.invite_expires) < datetime.now(timezone.utc):
         user.invite_token = None
         user.invite_expires = None
         db.commit()

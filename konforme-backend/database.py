@@ -72,36 +72,42 @@ def run_migrations(eng):
                     role VARCHAR(20) DEFAULT 'member' NOT NULL,
                     email_verified BOOLEAN DEFAULT false NOT NULL,
                     email_verification_token VARCHAR(64),
-                    email_verification_expires TIMESTAMP,
+                    email_verification_expires TIMESTAMPTZ,
                     invite_token VARCHAR(64) UNIQUE,
-                    invite_expires TIMESTAMP,
-                    invite_accepted_at TIMESTAMP,
+                    invite_expires TIMESTAMPTZ,
+                    invite_accepted_at TIMESTAMPTZ,
                     is_active BOOLEAN DEFAULT true NOT NULL,
                     failed_login_attempts INTEGER DEFAULT 0 NOT NULL,
-                    locked_until TIMESTAMP,
+                    locked_until TIMESTAMPTZ,
                     password_reset_token VARCHAR(64),
-                    password_reset_expires TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+                    password_reset_expires TIMESTAMPTZ,
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
                 )
             """))
 
     # Security hardening: token expiry columns and wider token fields
     is_postgres = "postgresql" in str(eng.url)
+    ts_type = "TIMESTAMPTZ" if is_postgres else "TIMESTAMP"
     if "users" in inspector.get_table_names():
         existing = {c["name"] for c in inspector.get_columns("users")}
         with eng.begin() as conn:
             if "email_verification_expires" not in existing:
-                conn.execute(text("ALTER TABLE users ADD COLUMN email_verification_expires TIMESTAMP"))
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN email_verification_expires {ts_type}"))
+            elif is_postgres:
+                conn.execute(text("ALTER TABLE users ALTER COLUMN email_verification_expires TYPE TIMESTAMPTZ"))
             if "invite_expires" not in existing:
-                conn.execute(text("ALTER TABLE users ADD COLUMN invite_expires TIMESTAMP"))
-            # Widen token columns for secrets.token_urlsafe(32) (~43 chars)
-            if is_postgres:
-                try:
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN invite_expires {ts_type}"))
+            elif is_postgres:
+                conn.execute(text("ALTER TABLE users ALTER COLUMN invite_expires TYPE TIMESTAMPTZ"))
+        # Widen token columns in a separate transaction (avoid rollback if ALTER fails)
+        if is_postgres:
+            try:
+                with eng.begin() as conn:
                     conn.execute(text("ALTER TABLE users ALTER COLUMN email_verification_token TYPE VARCHAR(64)"))
                     conn.execute(text("ALTER TABLE users ALTER COLUMN invite_token TYPE VARCHAR(64)"))
-                except Exception:
-                    pass  # Already correct width or unsupported
+            except Exception:
+                pass  # Already correct width or unsupported
 
     if "campaign_tasks" in inspector.get_table_names():
         existing = {c["name"] for c in inspector.get_columns("campaign_tasks")}

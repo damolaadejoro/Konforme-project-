@@ -339,12 +339,17 @@ def verify_email(token: str, request: Request, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or expired verification token")
 
-    # Check token expiry
-    if user.email_verification_expires and user.email_verification_expires < datetime.now(timezone.utc):
-        user.email_verification_token = None
-        user.email_verification_expires = None
-        db.commit()
-        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+    # Check token expiry (handle both naive and timezone-aware datetimes)
+    if user.email_verification_expires:
+        expires = user.email_verification_expires
+        now = datetime.now(timezone.utc)
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if expires < now:
+            user.email_verification_token = None
+            user.email_verification_expires = None
+            db.commit()
+            raise HTTPException(status_code=400, detail="Invalid or expired verification token")
 
     user.email_verified = True
     user.email_verification_token = None
