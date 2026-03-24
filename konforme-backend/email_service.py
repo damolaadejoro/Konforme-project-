@@ -1,18 +1,50 @@
-"""AWS SES email service for transactional emails."""
+"""Email service supporting Resend and AWS SES providers."""
 
 import html as html_module
 import logging
 
-import boto3
-from botocore.exceptions import ClientError
+import httpx
 
 from config import settings
 
 logger = logging.getLogger(__name__)
 
 
-def _get_ses_client():
-    """Create an SES client using dedicated SES credentials."""
+# ---------------------------------------------------------------------------
+# Providers
+# ---------------------------------------------------------------------------
+
+def _send_via_resend(to: str, subject: str, html_body: str) -> bool:
+    """Send email via Resend API."""
+    if not settings.resend_api_key:
+        logger.warning("RESEND_API_KEY not configured — skipping email to %s", to)
+        return False
+
+    try:
+        resp = httpx.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {settings.resend_api_key}"},
+            json={
+                "from": settings.sender_email,
+                "to": [to],
+                "subject": subject,
+                "html": html_body,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        logger.info("Email sent via Resend to %s: %s", to, subject)
+        return True
+    except Exception:
+        logger.exception("Failed to send email via Resend to %s", to)
+        return False
+
+
+def _send_via_ses(to: str, subject: str, html_body: str) -> bool:
+    """Send email via AWS SES."""
+    import boto3
+    from botocore.exceptions import ClientError
+
     kwargs = {
         "service_name": "ses",
         "region_name": settings.aws_ses_region,
@@ -20,17 +52,9 @@ def _get_ses_client():
     if settings.aws_ses_access_key_id and settings.aws_ses_secret_access_key:
         kwargs["aws_access_key_id"] = settings.aws_ses_access_key_id
         kwargs["aws_secret_access_key"] = settings.aws_ses_secret_access_key
-    return boto3.client(**kwargs)
-
-
-def send_email(to: str, subject: str, html_body: str) -> bool:
-    """Send an email via AWS SES. Returns True on success."""
-    if not settings.sender_email:
-        logger.warning("SENDER_EMAIL not configured — skipping email to %s", to)
-        return False
 
     try:
-        client = _get_ses_client()
+        client = boto3.client(**kwargs)
         client.send_email(
             Source=settings.sender_email,
             Destination={"ToAddresses": [to]},
@@ -39,11 +63,26 @@ def send_email(to: str, subject: str, html_body: str) -> bool:
                 "Body": {"Html": {"Data": html_body, "Charset": "UTF-8"}},
             },
         )
-        logger.info("Email sent to %s: %s", to, subject)
+        logger.info("Email sent via SES to %s: %s", to, subject)
         return True
     except ClientError:
-        logger.exception("Failed to send email to %s", to)
+        logger.exception("Failed to send email via SES to %s", to)
         return False
+
+
+# ---------------------------------------------------------------------------
+# Public send function
+# ---------------------------------------------------------------------------
+
+def send_email(to: str, subject: str, html_body: str) -> bool:
+    """Send an email using the configured provider. Returns True on success."""
+    if not settings.sender_email:
+        logger.warning("SENDER_EMAIL not configured — skipping email to %s", to)
+        return False
+
+    if settings.email_provider == "ses":
+        return _send_via_ses(to, subject, html_body)
+    return _send_via_resend(to, subject, html_body)
 
 
 # ---------------------------------------------------------------------------

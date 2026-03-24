@@ -22,11 +22,15 @@ class Settings(BaseSettings):
     max_upload_size_mb: int = 10
     signup_webhook_url: str = ""
 
+    # Email provider: "resend" or "ses"
+    email_provider: str = "resend"
+    resend_api_key: str = ""
+
     # AWS SES email settings
     aws_ses_access_key_id: str = ""
     aws_ses_secret_access_key: str = ""
     aws_ses_region: str = "eu-west-1"
-    sender_email: str = ""
+    sender_email: str = "noreply@konforme.io"
     frontend_base_url: str = "http://localhost:5173"
 
     @property
