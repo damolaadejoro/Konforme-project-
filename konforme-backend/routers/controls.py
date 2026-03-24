@@ -1,6 +1,6 @@
 """CRUD endpoints for per-account control state and employee campaigns."""
 
-import uuid
+import secrets
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -234,7 +234,7 @@ def create_campaign(
     base_url = settings.frontend_base_url
 
     for emp in req.employees:
-        completion_token = str(uuid.uuid4())
+        completion_token = secrets.token_urlsafe(32)
         task = CampaignTask(
             campaign_id=campaign.id,
             control_id=req.control_id,

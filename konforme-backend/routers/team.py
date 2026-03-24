@@ -1,16 +1,20 @@
 """Team management endpoints — invite members, manage roles."""
 
-import uuid
+import secrets
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, hash_password, require_role
 from database import get_db
 from email_service import send_invite_email
 from models import User, UserRole
+from rate_limit import limiter
 from routers.auth_router import _validate_password
 from schemas import AcceptInviteRequest, InviteRequest, TeamMemberResponse, UpdateMemberRoleRequest
+
+INVITE_TOKEN_EXPIRY_DAYS = 7
 
 router = APIRouter()
 
@@ -65,13 +69,14 @@ def invite_members(
                 detail=f"Email {email_lower} is already associated with another organization",
             )
 
-        invite_token = str(uuid.uuid4())
+        invite_token = secrets.token_urlsafe(32)
         new_user = User(
             account_id=user.account_id,
             name=email_lower.split("@")[0],  # placeholder name
             email=email_lower,
             role=req.role,
             invite_token=invite_token,
+            invite_expires=datetime.now(timezone.utc) + timedelta(days=INVITE_TOKEN_EXPIRY_DAYS),
             is_active=False,  # Activated on invite acceptance
             email_verified=False,
         )
@@ -97,10 +102,18 @@ def invite_members(
 
 
 @router.get("/team/accept-invite")
-def accept_invite_redirect(token: str, db: Session = Depends(get_db)):
+@limiter.limit("10/hour")
+def accept_invite_redirect(token: str, request: Request, db: Session = Depends(get_db)):
     """Public endpoint — validates token and returns info for the frontend signup form."""
     user = db.query(User).filter(User.invite_token == token).first()
     if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired invitation token")
+
+    # Check token expiry
+    if user.invite_expires and user.invite_expires < datetime.now(timezone.utc):
+        user.invite_token = None
+        user.invite_expires = None
+        db.commit()
         raise HTTPException(status_code=400, detail="Invalid or expired invitation token")
 
     account = user.account
@@ -112,7 +125,8 @@ def accept_invite_redirect(token: str, db: Session = Depends(get_db)):
 
 
 @router.post("/team/accept-invite")
-def accept_invite(req: AcceptInviteRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/hour")
+def accept_invite(req: AcceptInviteRequest, request: Request, db: Session = Depends(get_db)):
     """Public endpoint — accept an invitation by setting name and password."""
     _validate_password(req.password)
 
@@ -123,10 +137,17 @@ def accept_invite(req: AcceptInviteRequest, db: Session = Depends(get_db)):
     if user.invite_accepted_at:
         raise HTTPException(status_code=400, detail="Invitation has already been accepted")
 
-    from datetime import datetime, timezone
+    # Check token expiry
+    if user.invite_expires and user.invite_expires < datetime.now(timezone.utc):
+        user.invite_token = None
+        user.invite_expires = None
+        db.commit()
+        raise HTTPException(status_code=400, detail="Invalid or expired invitation token")
+
     user.name = req.name
     user.password_hash = hash_password(req.password)
     user.invite_token = None
+    user.invite_expires = None
     user.invite_accepted_at = datetime.now(timezone.utc)
     user.email_verified = True  # Verified by accepting invite link
     user.is_active = True  # Activate user on acceptance
@@ -168,11 +189,18 @@ def remove_member(
     if not target:
         raise HTTPException(status_code=404, detail="Member not found")
 
-    if target.role == UserRole.owner.value:
-        raise HTTPException(status_code=400, detail="Cannot remove the account owner")
-
     if target.id == user.id:
         raise HTTPException(status_code=400, detail="Cannot remove yourself")
+
+    if target.role == UserRole.owner.value:
+        # Ensure at least one active owner remains
+        owner_count = db.query(User).filter(
+            User.account_id == user.account_id,
+            User.role == UserRole.owner.value,
+            User.is_active.is_(True),
+        ).count()
+        if owner_count <= 1:
+            raise HTTPException(status_code=400, detail="Cannot remove the last account owner")
 
     target.is_active = False
     db.commit()

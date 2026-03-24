@@ -35,6 +35,12 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+class UpdateEmailRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    email: EmailStr
+
+
 class AuthResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -268,7 +274,7 @@ class MaturityResponseItem(BaseModel):
     model_config = {"extra": "forbid"}
 
     question_id: str
-    maturity_level: int | None = None  # 0-4, None = N/A
+    maturity_level: int | None = Field(default=None, ge=0, le=4)  # 0-4, None = N/A
     notes: str = ""
     evidence_refs: list[str] = []
 

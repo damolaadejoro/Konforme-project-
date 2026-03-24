@@ -1,5 +1,5 @@
+import secrets
 import threading
-import uuid
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -21,7 +21,7 @@ from database import get_db
 from email_service import send_password_reset_email, send_verification_email
 from models import Account, User, UserRole
 from rate_limit import limiter
-from schemas import AuthResponse, ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest
+from schemas import AuthResponse, ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, UpdateEmailRequest
 
 router = APIRouter()
 
@@ -91,8 +91,10 @@ def _clear_auth_cookies(response: Response) -> None:
 
 
 def _generate_csrf_token() -> str:
-    import secrets
     return secrets.token_urlsafe(32)
+
+
+VERIFICATION_TOKEN_EXPIRY_HOURS = 24
 
 
 def _notify_signup(name: str, email: str, country: str | None):
@@ -136,7 +138,7 @@ def register(req: RegisterRequest, request: Request, response: Response, db: Ses
     if existing_user or existing_account:
         raise HTTPException(status_code=409, detail="An account with this email already exists")
 
-    verification_token = str(uuid.uuid4())
+    verification_token = secrets.token_urlsafe(32)
 
     hashed = hash_password(req.password)
 
@@ -160,6 +162,7 @@ def register(req: RegisterRequest, request: Request, response: Response, db: Ses
         role=UserRole.owner.value,
         email_verified=False,
         email_verification_token=verification_token,
+        email_verification_expires=datetime.now(timezone.utc) + timedelta(hours=VERIFICATION_TOKEN_EXPIRY_HOURS),
     )
     db.add(user)
     db.commit()
@@ -329,14 +332,23 @@ def get_me(request: Request, db: Session = Depends(get_db), account: Account = D
 
 
 @router.post("/auth/verify-email")
-def verify_email(token: str, db: Session = Depends(get_db)):
+@limiter.limit("10/hour")
+def verify_email(token: str, request: Request, db: Session = Depends(get_db)):
     """Public endpoint — verifies email by token."""
     user = db.query(User).filter(User.email_verification_token == token).first()
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or expired verification token")
 
+    # Check token expiry
+    if user.email_verification_expires and user.email_verification_expires < datetime.now(timezone.utc):
+        user.email_verification_token = None
+        user.email_verification_expires = None
+        db.commit()
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+
     user.email_verified = True
     user.email_verification_token = None
+    user.email_verification_expires = None
     # Also update Account-level flag
     account = user.account
     if account:
@@ -357,8 +369,9 @@ def resend_verification(request: Request, account: Account = Depends(get_current
     if not user:
         return {"detail": "No user found"}
 
-    verification_token = str(uuid.uuid4())
+    verification_token = secrets.token_urlsafe(32)
     user.email_verification_token = verification_token
+    user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=VERIFICATION_TOKEN_EXPIRY_HOURS)
     db.commit()
 
     _send_verification_async(user.email, verification_token)
@@ -366,12 +379,46 @@ def resend_verification(request: Request, account: Account = Depends(get_current
     return {"detail": "Verification email sent"}
 
 
+@router.put("/auth/update-email")
+@limiter.limit("3/minute")
+def update_email(req: UpdateEmailRequest, request: Request, account: Account = Depends(get_current_account), db: Session = Depends(get_db)):
+    """Allow authenticated unverified users to fix their email address."""
+    user = db.query(User).filter(User.account_id == account.id, User.is_active.is_(True)).order_by(User.created_at).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.email_verified:
+        raise HTTPException(status_code=400, detail="Email is already verified — cannot change")
+
+    new_email = req.email.lower()
+    if new_email == user.email.lower():
+        raise HTTPException(status_code=400, detail="This is already your current email")
+
+    # Check uniqueness across both tables
+    existing_user = db.query(User).filter(User.email == new_email).first()
+    existing_account = db.query(Account).filter(Account.email == new_email).first()
+    if existing_user or existing_account:
+        raise HTTPException(status_code=409, detail="An account with this email already exists")
+
+    # Update email on both User and Account
+    user.email = new_email
+    account.email = new_email
+
+    # Generate new verification token and send
+    verification_token = secrets.token_urlsafe(32)
+    user.email_verification_token = verification_token
+    user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=VERIFICATION_TOKEN_EXPIRY_HOURS)
+    db.commit()
+
+    _send_verification_async(new_email, verification_token)
+
+    return {"detail": "Email updated and verification link sent"}
+
+
 @router.post("/auth/forgot-password")
 @limiter.limit("3/minute")
 def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
     """Step 1: Send a password reset email with a secure token."""
-    import secrets
-
     user = db.query(User).filter(User.email == req.email, User.is_active.is_(True)).first()
     if not user:
         raise HTTPException(status_code=404, detail="No account found with this email address")

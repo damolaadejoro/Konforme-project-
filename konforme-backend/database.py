@@ -84,11 +84,27 @@ def run_migrations(eng):
                 )
             """))
 
+    # Security hardening: token expiry columns and wider token fields
+    is_postgres = "postgresql" in str(eng.url)
+    if "users" in inspector.get_table_names():
+        existing = {c["name"] for c in inspector.get_columns("users")}
+        with eng.begin() as conn:
+            if "email_verification_expires" not in existing:
+                conn.execute(text("ALTER TABLE users ADD COLUMN email_verification_expires TIMESTAMP"))
+            if "invite_expires" not in existing:
+                conn.execute(text("ALTER TABLE users ADD COLUMN invite_expires TIMESTAMP"))
+            # Widen token columns for secrets.token_urlsafe(32) (~43 chars)
+            if is_postgres:
+                conn.execute(text("ALTER TABLE users ALTER COLUMN email_verification_token TYPE VARCHAR(64)"))
+                conn.execute(text("ALTER TABLE users ALTER COLUMN invite_token TYPE VARCHAR(64)"))
+
     if "campaign_tasks" in inspector.get_table_names():
         existing = {c["name"] for c in inspector.get_columns("campaign_tasks")}
         with eng.begin() as conn:
             if "completion_token" not in existing:
-                conn.execute(text("ALTER TABLE campaign_tasks ADD COLUMN completion_token VARCHAR(36)"))
+                conn.execute(text("ALTER TABLE campaign_tasks ADD COLUMN completion_token VARCHAR(64)"))
+            elif is_postgres:
+                conn.execute(text("ALTER TABLE campaign_tasks ALTER COLUMN completion_token TYPE VARCHAR(64)"))
 
     if "scans" in inspector.get_table_names():
         existing = {c["name"] for c in inspector.get_columns("scans")}

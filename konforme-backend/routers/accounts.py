@@ -140,6 +140,10 @@ def remove_aws_account(
         raise HTTPException(status_code=404, detail="AWS account not found")
 
     aws_acc.is_active = False
+    # Clear encrypted credential fields on removal
+    aws_acc.aws_access_key_id = ""
+    aws_acc.aws_secret_access_key = ""
+    aws_acc.aws_session_token = None
     db.commit()
 
     log_aws_account_removed(account.id, aws_acc.aws_account_id, aws_acc.alias)

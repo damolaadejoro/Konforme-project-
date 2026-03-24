@@ -57,8 +57,10 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)  # null for pending invites
     role: Mapped[str] = mapped_column(String(20), default=UserRole.member.value, nullable=False)
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
-    email_verification_token: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    invite_token: Mapped[str | None] = mapped_column(String(36), nullable=True, unique=True)
+    email_verification_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    email_verification_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    invite_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
+    invite_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     invite_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     password_reset_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     password_reset_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -436,6 +438,6 @@ class CampaignTask(Base):
     completed_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     deadline: Mapped[str] = mapped_column(String(20), nullable=False)
     score: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    completion_token: Mapped[str | None] = mapped_column(String(36), nullable=True, unique=True)
+    completion_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
 
     campaign: Mapped["ControlCampaign"] = relationship(back_populates="tasks")

@@ -122,6 +122,14 @@ def remove_cloud_credential(
     if not cred:
         raise HTTPException(status_code=404, detail="Cloud credential not found")
     cred.is_active = False
+    # Clear encrypted credential fields on removal
+    cred.aws_access_key_id = None
+    cred.aws_secret_access_key = None
+    cred.aws_session_token = None
+    cred.azure_tenant_id = None
+    cred.azure_client_id = None
+    cred.azure_client_secret = None
+    cred.azure_subscription_id = None
     db.commit()
     return {"status": "removed"}
 
