@@ -372,12 +372,9 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
     """Step 1: Send a password reset email with a secure token."""
     import secrets
 
-    # Always return the same response to prevent email enumeration
-    generic_response = {"detail": "If an account with that email exists, a reset link has been sent."}
-
     user = db.query(User).filter(User.email == req.email, User.is_active.is_(True)).first()
     if not user:
-        return generic_response
+        raise HTTPException(status_code=404, detail="No account found with this email address")
 
     # Generate a secure, time-limited token
     token = secrets.token_urlsafe(32)
@@ -393,7 +390,7 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
             pass
     threading.Thread(target=_send, daemon=True).start()
 
-    return generic_response
+    return {"detail": "Password reset link has been sent to your email"}
 
 
 @router.post("/auth/reset-password")
