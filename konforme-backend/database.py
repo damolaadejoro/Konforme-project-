@@ -423,6 +423,13 @@ def run_migrations(eng):
                 )
             """))
 
+    # Add isms_domain column if missing
+    if "people_tasks" in inspector.get_table_names():
+        existing_pt_cols = {c["name"] for c in inspector.get_columns("people_tasks")}
+        if "isms_domain" not in existing_pt_cols:
+            with eng.begin() as conn:
+                conn.execute(text("ALTER TABLE people_tasks ADD COLUMN isms_domain VARCHAR(50)"))
+
     if "people_task_completions" not in inspector.get_table_names():
         with eng.begin() as conn:
             conn.execute(text(f"""
@@ -469,6 +476,7 @@ def run_migrations(eng):
         ("ix_people_tasks_account_id", "people_tasks", "account_id"),
         ("ix_people_tasks_next_due", "people_tasks", "next_due_date"),
         ("ix_people_tasks_subsection", "people_tasks", "article_21_subsection"),
+        ("ix_people_tasks_isms_domain", "people_tasks", "isms_domain"),
         ("ix_ptc_task_id", "people_task_completions", "people_task_id"),
         ("ix_ptc_user_id", "people_task_completions", "user_id"),
     ]

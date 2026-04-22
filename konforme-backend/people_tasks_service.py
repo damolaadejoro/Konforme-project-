@@ -27,6 +27,18 @@ logger = logging.getLogger(__name__)
 # Fields whose update requires a change_reason and emits a material audit event
 MATERIAL_FIELDS = {"frequency", "attestation_statement", "related_control_id", "next_due_date", "active"}
 
+# ISMS domain labels
+ISMS_DOMAIN_LABELS = {
+    "policy_governance": "Policy & Governance",
+    "risk_management": "Risk Management",
+    "incident_management": "Incident Management",
+    "business_continuity": "Business Continuity",
+    "supply_chain": "Supply Chain Security",
+    "access_control": "Access Control & HR",
+    "asset_management": "Asset & Change Management",
+    "audit_training": "Audit, Training & Awareness",
+}
+
 # Article 21(2) subsection labels (a-j)
 ARTICLE_21_LABELS = {
     "a": "Risk analysis & IS policies",
@@ -107,11 +119,17 @@ def instantiate_baseline(
     account_id: str,
     *,
     actor_user_id: str | None = None,
+    excluded_ids: set[str] | None = None,
+    assignments: dict | None = None,
 ) -> dict:
     """Idempotent: load baseline YAML, create PeopleTask rows for any missing templates.
 
     Per-process templates (per_process=true) are instantiated once per critical
     business process, using composite baseline_template_id = "template_id::process_id".
+
+    Args:
+        excluded_ids: Template IDs to skip.
+        assignments: Dict of template_id -> BaselineAssignment with user_id/role.
 
     Returns {"created": int, "skipped": int}.
     """
@@ -141,6 +159,17 @@ def instantiate_baseline(
 
     for tpl in templates:
         per_process = tpl.get("per_process", False)
+        tpl_id = tpl["template_id"]
+
+        # Skip excluded templates
+        if excluded_ids and tpl_id in excluded_ids:
+            skipped += 1
+            continue
+
+        # Resolve assignment for this template
+        assign = assignments.get(tpl_id) if assignments else None
+        assign_user_id = getattr(assign, "user_id", None) if assign else None
+        assign_role = getattr(assign, "role", None) if assign else None
 
         if per_process and processes:
             for bp in processes:
@@ -167,6 +196,9 @@ def instantiate_baseline(
                     requires_evidence=tpl.get("requires_evidence", False),
                     attestation_statement=attestation or None,
                     baseline_template_id=composite_id,
+                    isms_domain=tpl.get("isms_domain"),
+                    assignee_user_id=assign_user_id,
+                    assignee_role=assign_role,
                 )
                 db.add(task)
                 created += 1
@@ -189,6 +221,9 @@ def instantiate_baseline(
                 requires_evidence=tpl.get("requires_evidence", False),
                 attestation_statement=tpl.get("attestation_statement"),
                 baseline_template_id=template_id,
+                isms_domain=tpl.get("isms_domain"),
+                assignee_user_id=assign_user_id,
+                assignee_role=assign_role,
             )
             db.add(task)
             created += 1
@@ -350,6 +385,10 @@ def get_isms_coverage(db: Session, account_id: str) -> dict:
                 {"subsection": s, "label": ARTICLE_21_LABELS[s], "taskCount": 0, "completionRate": 0.0, "status": "not_started"}
                 for s in "abcdefghij"
             ],
+            "ismsDomainCoverage": [
+                {"domain": d, "label": l, "taskCount": 0, "completionRate": 0.0, "status": "not_started"}
+                for d, l in ISMS_DOMAIN_LABELS.items()
+            ],
             "overallHealthScore": 0.0,
             "overdueCount": 0,
             "totalActive": 0,
@@ -413,12 +452,36 @@ def get_isms_coverage(db: Session, account_id: str) -> dict:
             "status": status,
         })
 
+    # ISMS domain coverage
+    domain_coverage = []
+    for domain, label in ISMS_DOMAIN_LABELS.items():
+        dom_tasks = [t for t in tasks if t.isms_domain == domain]
+        dom_completed = sum(1 for t in dom_tasks if completions_by_task.get(t.id, 0) > 0)
+        rate = round(dom_completed / len(dom_tasks), 2) if dom_tasks else 0.0
+        if not dom_tasks:
+            status = "not_started"
+        elif rate >= 0.8:
+            status = "healthy"
+        elif rate >= 0.4:
+            status = "partial"
+        else:
+            status = "at_risk"
+
+        domain_coverage.append({
+            "domain": domain,
+            "label": label,
+            "taskCount": len(dom_tasks),
+            "completionRate": rate,
+            "status": status,
+        })
+
     # Health score: weighted average of completion rate across all tasks
     health = round(completed_this_period / total_active, 2) if total_active else 0.0
 
     return {
         "pdcaSummary": pdca_summary,
         "article21Coverage": article_coverage,
+        "ismsDomainCoverage": domain_coverage,
         "overallHealthScore": health,
         "overdueCount": overdue_count,
         "totalActive": total_active,

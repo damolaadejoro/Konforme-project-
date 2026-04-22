@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from config import settings
-from models import Evidence, EvidenceLink
+from models import BaseControl, BusinessProcess, Evidence, EvidenceLink, PeopleTask, RemediationTask
 from storage import get_storage
 
 
@@ -185,17 +185,89 @@ def search_library(
     total = query.count()
     rows = query.order_by(Evidence.uploaded_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
 
-    # Get link counts
+    # Get link counts and linked entity details
+    ev_ids = [ev.id for ev in rows]
+    links_by_evidence: dict[str, list] = {eid: [] for eid in ev_ids}
+    if ev_ids:
+        active_links = (
+            db.query(EvidenceLink)
+            .filter(EvidenceLink.evidence_id.in_(ev_ids), EvidenceLink.unlinked_at.is_(None))
+            .all()
+        )
+        for lnk in active_links:
+            links_by_evidence.setdefault(lnk.evidence_id, []).append(lnk)
+
+    # Batch-resolve entity names
+    entity_names = _resolve_entity_names(db, active_links if ev_ids else [])
+
     results = []
     for ev in rows:
-        link_count = (
-            db.query(func.count(EvidenceLink.id))
-            .filter(EvidenceLink.evidence_id == ev.id, EvidenceLink.unlinked_at.is_(None))
-            .scalar()
-        )
-        results.append({"evidence": ev, "link_count": link_count})
+        ev_links = links_by_evidence.get(ev.id, [])
+        linked_entities = []
+        for lnk in ev_links:
+            name = entity_names.get((lnk.entity_type, lnk.entity_id), lnk.entity_id)
+            linked_entities.append({
+                "entity_type": lnk.entity_type,
+                "entity_id": lnk.entity_id,
+                "entity_name": name,
+            })
+        results.append({
+            "evidence": ev,
+            "link_count": len(ev_links),
+            "linked_entities": linked_entities,
+        })
 
     return results, total
+
+
+def _resolve_entity_names(db: Session, links: list[EvidenceLink]) -> dict[tuple[str, str], str]:
+    """Batch-resolve human-readable names for linked entities."""
+    names: dict[tuple[str, str], str] = {}
+    by_type: dict[str, set[str]] = {}
+    for lnk in links:
+        by_type.setdefault(lnk.entity_type, set()).add(lnk.entity_id)
+
+    # Controls
+    control_ids = by_type.get("control", set())
+    if control_ids:
+        rows = db.query(BaseControl.control_id, BaseControl.title).filter(
+            BaseControl.control_id.in_(control_ids)
+        ).all()
+        for cid, title in rows:
+            names[("control", cid)] = title
+
+    # Remediation tasks
+    rt_ids = by_type.get("remediation_task", set())
+    if rt_ids:
+        rows = db.query(RemediationTask.id, RemediationTask.title).filter(
+            RemediationTask.id.in_(rt_ids)
+        ).all()
+        for rid, title in rows:
+            names[("remediation_task", rid)] = title
+
+    # People tasks
+    pt_ids = by_type.get("people_task", set())
+    if pt_ids:
+        rows = db.query(PeopleTask.id, PeopleTask.title).filter(
+            PeopleTask.id.in_(pt_ids)
+        ).all()
+        for pid, title in rows:
+            names[("people_task", pid)] = title
+
+    # Business processes
+    bp_ids = by_type.get("process", set())
+    if bp_ids:
+        rows = db.query(BusinessProcess.id, BusinessProcess.name).filter(
+            BusinessProcess.id.in_(bp_ids)
+        ).all()
+        for bid, bname in rows:
+            names[("process", bid)] = bname
+
+    # Assessment answers — no separate table with title, use question_id
+    for aid in by_type.get("assessment_answer", set()):
+        names[("assessment_answer", aid)] = f"Assessment Q: {aid}"
+
+    return names
 
 
 def get_download_url(db: Session, evidence_id: str, account_id: str) -> tuple[str, str, bool] | None:

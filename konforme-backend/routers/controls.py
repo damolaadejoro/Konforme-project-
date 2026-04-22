@@ -130,7 +130,18 @@ def bulk_upsert_controls(
         .all()
     }
 
+    import evidence_service
+
     for item in req.controls:
+        # Enforce evidence requirement for Implemented/Partial
+        if item.status in ("Implemented", "Partial"):
+            linked = evidence_service.get_for_entity(db, account_id, "control", item.control_id)
+            if not linked:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Control '{item.control_id}': at least one evidence file must be linked before setting status to '{item.status}'.",
+                )
+
         parsed_date = None
         if item.due_date:
             try:
@@ -200,6 +211,15 @@ def update_control(
 
     old_status = ac.status
     if req.status is not None:
+        # Enforce evidence requirement for Implemented/Partial
+        if req.status in ("Implemented", "Partial"):
+            import evidence_service
+            linked = evidence_service.get_for_entity(db, account_id, "control", control_id)
+            if not linked:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"At least one evidence file must be linked before setting status to '{req.status}'.",
+                )
         ac.status = req.status
     if req.owner is not None:
         ac.owner = req.owner

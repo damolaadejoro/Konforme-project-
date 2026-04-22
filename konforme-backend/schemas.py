@@ -981,6 +981,12 @@ class EvidenceUpdateRequest(BaseModel):
     tags: list[str] | None = None
 
 
+class EvidenceLinkedEntity(BaseModel):
+    entityType: str
+    entityId: str
+    entityName: str
+
+
 class EvidenceLibraryItem(BaseModel):
     id: str
     filename: str
@@ -992,6 +998,7 @@ class EvidenceLibraryItem(BaseModel):
     uploadedAt: str
     uploadedBy: str
     linkCount: int = 0
+    linkedEntities: list[EvidenceLinkedEntity] = []
 
 
 class EvidenceLibraryResponse(BaseModel):
@@ -1064,6 +1071,7 @@ class CreatePeopleTaskRequest(BaseModel):
     related_plan_id: str | None = None
     requires_evidence: bool = False
     attestation_statement: str | None = None
+    isms_domain: str | None = None
 
 
 class UpdatePeopleTaskRequest(BaseModel):
@@ -1082,6 +1090,7 @@ class UpdatePeopleTaskRequest(BaseModel):
     related_plan_id: str | None = None
     requires_evidence: bool | None = None
     attestation_statement: str | None = None
+    isms_domain: str | None = None
     active: bool | None = None
     change_reason: str | None = None  # required for material fields
 
@@ -1103,6 +1112,7 @@ class PeopleTaskResponse(BaseModel):
     requiresEvidence: bool
     attestationStatement: str | None = None
     baselineTemplateId: str | None = None
+    ismsDomain: str | None = None
     active: bool
     createdAt: str
     updatedAt: str
@@ -1138,6 +1148,19 @@ class ReschedulePeopleTaskRequest(BaseModel):
     category: Literal["resource_constraint", "dependency", "scope_change", "other"] = "other"
 
 
+class BaselineAssignment(BaseModel):
+    template_id: str
+    user_id: str | None = None
+    role: str | None = None
+
+
+class BaselineInstantiateRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    excluded_template_ids: list[str] = []
+    assignments: list[BaselineAssignment] = []
+
+
 class MyPeopleTaskItem(BaseModel):
     id: str
     title: str
@@ -1150,6 +1173,7 @@ class MyPeopleTaskItem(BaseModel):
     requiresEvidence: bool
     attestationStatement: str | None = None
     relatedControlId: str | None = None
+    ismsDomain: str | None = None
     currentPeriodKey: str
     currentPeriodStatus: str  # completed | pending | overdue
 
@@ -1157,6 +1181,7 @@ class MyPeopleTaskItem(BaseModel):
 class ISMSCoverageResponse(BaseModel):
     pdcaSummary: dict
     article21Coverage: list[dict]
+    ismsDomainCoverage: list[dict] = []
     overallHealthScore: float
     overdueCount: int
     totalActive: int

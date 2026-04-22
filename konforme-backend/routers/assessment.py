@@ -191,6 +191,20 @@ def submit_assessment_v2(
     if missing:
         raise HTTPException(status_code=422, detail=f"Missing questions: {sorted(missing)}")
 
+    # Enforce evidence requirement for maturity level >= 3
+    import evidence_service
+    missing_evidence = []
+    for r in req.responses:
+        if r.maturity_level is not None and r.maturity_level >= 3:
+            linked = evidence_service.get_for_entity(db, account_id, "assessment_answer", r.question_id)
+            if not linked:
+                missing_evidence.append(r.question_id)
+    if missing_evidence:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Evidence must be linked for questions with maturity >= 3: {sorted(missing_evidence)}",
+        )
+
     # Calculate version number
     latest = (
         db.query(AssessmentVersion)
@@ -389,6 +403,16 @@ def auto_save_response(
         )
         db.add(draft)
         db.flush()
+
+    # Enforce evidence requirement for maturity level >= 3
+    if req.maturity_level is not None and req.maturity_level >= 3:
+        import evidence_service
+        linked = evidence_service.get_for_entity(db, account_id, "assessment_answer", question_id)
+        if not linked:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Evidence must be linked before setting maturity level to {req.maturity_level}.",
+            )
 
     # Update or create response
     existing = (

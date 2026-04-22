@@ -13,6 +13,7 @@ from models import Account, PeopleTask, PeopleTaskCompletion, User, UserRole
 import audit_service
 import people_tasks_service
 from schemas import (
+    BaselineInstantiateRequest,
     CompletePeopleTaskRequest,
     CreatePeopleTaskRequest,
     ISMSCoverageResponse,
@@ -55,12 +56,40 @@ def _task_to_response(db: Session, task: PeopleTask, user_id: str | None = None)
         requiresEvidence=task.requires_evidence,
         attestationStatement=task.attestation_statement,
         baselineTemplateId=task.baseline_template_id,
+        ismsDomain=task.isms_domain,
         active=task.active,
         createdAt=task.created_at.isoformat() if task.created_at else "",
         updatedAt=task.updated_at.isoformat() if task.updated_at else "",
         currentPeriodStatus=period_status,
         completionCount=completion_count,
     )
+
+
+# --- Baseline templates (read-only, for wizard preview) ---
+
+@router.get("/people-tasks/baseline-templates")
+def get_baseline_templates_endpoint(
+    _user: User = Depends(get_current_user),
+):
+    """Return all baseline templates for the wizard preview (no DB writes)."""
+    from scripts.seed_continuous_baseline import get_baseline_templates
+    templates = get_baseline_templates()
+    return [
+        {
+            "templateId": t["template_id"],
+            "title": t["title"],
+            "description": t.get("description", ""),
+            "taskType": t["task_type"],
+            "pdcaPhase": t["pdca_phase"],
+            "article21Subsection": t["article_21_subsection"],
+            "frequency": t["frequency"],
+            "relatedControlId": t.get("related_control_id"),
+            "requiresEvidence": t.get("requires_evidence", False),
+            "perProcess": t.get("per_process", False),
+            "ismsDomain": t.get("isms_domain"),
+        }
+        for t in templates
+    ]
 
 
 # --- My tasks (must be before /{account_id} to avoid "my" being treated as account_id) ---
@@ -103,6 +132,7 @@ def get_my_people_tasks(
             requiresEvidence=t.requires_evidence,
             attestationStatement=t.attestation_statement,
             relatedControlId=t.related_control_id,
+            ismsDomain=t.isms_domain,
             currentPeriodKey=pk,
             currentPeriodStatus=status,
         ))
@@ -119,6 +149,7 @@ def list_people_tasks(
     pdca_phase: str | None = Query(None),
     subsection: str | None = Query(None),
     task_type: str | None = Query(None),
+    isms_domain: str | None = Query(None),
     account: Account = Depends(get_current_account),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -133,6 +164,8 @@ def list_people_tasks(
         q = q.filter(PeopleTask.article_21_subsection == subsection)
     if task_type:
         q = q.filter(PeopleTask.task_type == task_type)
+    if isms_domain:
+        q = q.filter(PeopleTask.isms_domain == isms_domain)
 
     tasks = q.order_by(PeopleTask.next_due_date.asc().nullslast(), PeopleTask.created_at.desc()).all()
     return [_task_to_response(db, t, user.id) for t in tasks]
@@ -166,6 +199,7 @@ def create_people_task(
         related_plan_id=body.related_plan_id,
         requires_evidence=body.requires_evidence,
         attestation_statement=body.attestation_statement,
+        isms_domain=body.isms_domain,
     )
     db.add(task)
 
@@ -371,13 +405,22 @@ def get_isms_coverage(
 @router.post("/people-tasks/{account_id}/instantiate-baseline")
 def instantiate_baseline(
     account_id: str,
+    body: BaselineInstantiateRequest | None = None,
     account: Account = Depends(get_current_account),
     user: User = Depends(require_role(UserRole.owner, UserRole.admin)),
     db: Session = Depends(get_db),
 ):
     enforce_account_access(account, account_id)
 
-    result = people_tasks_service.instantiate_baseline(db, account_id, actor_user_id=user.id)
+    excluded = set(body.excluded_template_ids) if body and body.excluded_template_ids else None
+    assignments = {a.template_id: a for a in (body.assignments or [])} if body else None
+
+    result = people_tasks_service.instantiate_baseline(
+        db, account_id,
+        actor_user_id=user.id,
+        excluded_ids=excluded,
+        assignments=assignments,
+    )
 
     # Also consume any pending instantiations from Phase 3
     consumed = people_tasks_service.consume_pending_instantiations(db, account_id)

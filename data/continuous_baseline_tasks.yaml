@@ -1,5 +1,5 @@
 # NIS2 Article 21 Continuous Compliance Baseline Tasks
-# Each task maps to an Article 21(2) subsection (a-j) and a PDCA phase.
+# Each task maps to an Article 21(2) subsection (a-j), a PDCA phase, and an ISMS domain.
 # Tasks with per_process: true are instantiated once per critical business process.
 # {critical_process} placeholders are replaced with the process name at instantiation time.
 
@@ -17,6 +17,7 @@
   related_control_id: ctrl-001
   requires_evidence: true
   attestation_statement: "I confirm that our information security policy has been reviewed within the last 12 months, remains current, and has been approved by management."
+  isms_domain: policy_governance
 
 - template_id: cbt-a-002
   title: "Risk register reviewed and updated"
@@ -28,6 +29,7 @@
   related_control_id: ctrl-002
   requires_evidence: true
   attestation_statement: null
+  isms_domain: risk_management
 
 - template_id: cbt-a-003
   title: "Risk assessment completed for {critical_process}"
@@ -40,6 +42,7 @@
   requires_evidence: true
   attestation_statement: "I confirm that a risk assessment has been completed for {critical_process} within the last 12 months."
   per_process: true
+  isms_domain: risk_management
 
 - template_id: cbt-a-004
   title: "Security roles and responsibilities reviewed"
@@ -51,6 +54,7 @@
   related_control_id: ctrl-004
   requires_evidence: false
   attestation_statement: null
+  isms_domain: policy_governance
 
 - template_id: cbt-a-005
   title: "Risk treatment plan progress reviewed"
@@ -62,6 +66,7 @@
   related_control_id: ctrl-003
   requires_evidence: false
   attestation_statement: null
+  isms_domain: risk_management
 
 - template_id: cbt-a-006
   title: "Information security objectives reviewed"
@@ -73,6 +78,7 @@
   related_control_id: ctrl-001
   requires_evidence: false
   attestation_statement: "I confirm that information security objectives have been reviewed and remain aligned with business goals."
+  isms_domain: policy_governance
 
 # ============================================================================
 # (b) Incident handling
@@ -88,6 +94,7 @@
   related_control_id: ctrl-007
   requires_evidence: false
   attestation_statement: null
+  isms_domain: incident_management
 
 - template_id: cbt-b-002
   title: "Incident response plan tabletop exercise conducted"
@@ -99,6 +106,7 @@
   related_control_id: ctrl-005
   requires_evidence: true
   attestation_statement: null
+  isms_domain: incident_management
 
 - template_id: cbt-b-003
   title: "Incident notification process reviewed"
@@ -110,6 +118,7 @@
   related_control_id: ctrl-006
   requires_evidence: false
   attestation_statement: null
+  isms_domain: incident_management
 
 - template_id: cbt-b-004
   title: "CSIRT/competent authority contact details verified"
@@ -121,6 +130,7 @@
   related_control_id: ctrl-008
   requires_evidence: false
   attestation_statement: "I confirm that CSIRT and competent authority contact details have been verified and are current."
+  isms_domain: incident_management
 
 - template_id: cbt-b-005
   title: "Incident metrics reviewed (MTTD, MTTR)"
@@ -132,6 +142,7 @@
   related_control_id: ctrl-007
   requires_evidence: true
   attestation_statement: null
+  isms_domain: incident_management
 
 # ============================================================================
 # (c) Business continuity, backup management, crisis management
@@ -147,6 +158,7 @@
   related_control_id: ctrl-011
   requires_evidence: false
   attestation_statement: null
+  isms_domain: business_continuity
 
 - template_id: cbt-c-002
   title: "Backup restore test performed on {critical_process}"
@@ -159,6 +171,7 @@
   requires_evidence: true
   attestation_statement: null
   per_process: true
+  isms_domain: business_continuity
 
 - template_id: cbt-c-003
   title: "BCP / disaster recovery test executed end-to-end"
@@ -170,6 +183,7 @@
   related_control_id: ctrl-010
   requires_evidence: true
   attestation_statement: null
+  isms_domain: business_continuity
 
 - template_id: cbt-c-004
   title: "Crisis communication plan reviewed and contact list verified"
@@ -181,6 +195,7 @@
   related_control_id: ctrl-012
   requires_evidence: false
   attestation_statement: "I confirm that the crisis communication plan has been reviewed and the contact list is current."
+  isms_domain: business_continuity
 
 - template_id: cbt-c-005
   title: "Business impact analysis reviewed for {critical_process}"
@@ -193,6 +208,7 @@
   requires_evidence: false
   attestation_statement: null
   per_process: true
+  isms_domain: business_continuity
 
 # ============================================================================
 # (d) Supply chain security
@@ -208,6 +224,7 @@
   related_control_id: ctrl-014
   requires_evidence: true
   attestation_statement: null
+  isms_domain: supply_chain
 
 - template_id: cbt-d-002
   title: "Supplier security review — critical suppliers"
@@ -219,6 +236,7 @@
   related_control_id: ctrl-014
   requires_evidence: true
   attestation_statement: null
+  isms_domain: supply_chain
 
 - template_id: cbt-d-003
   title: "Supplier incident notifications reviewed"
@@ -230,6 +248,7 @@
   related_control_id: ctrl-015
   requires_evidence: false
   attestation_statement: null
+  isms_domain: supply_chain
 
 - template_id: cbt-d-004
   title: "Supply chain contract security clauses reviewed"
@@ -241,6 +260,7 @@
   related_control_id: ctrl-014
   requires_evidence: false
   attestation_statement: "I confirm that security clauses in critical supplier contracts have been reviewed and are adequate."
+  isms_domain: supply_chain
 
 - template_id: cbt-d-005
   title: "Third-party access rights reviewed"
@@ -252,6 +272,7 @@
   related_control_id: ctrl-015
   requires_evidence: true
   attestation_statement: null
+  isms_domain: supply_chain
 
 # ============================================================================
 # (e) Security in acquisition, development & maintenance of systems
@@ -267,6 +288,7 @@
   related_control_id: ctrl-017
   requires_evidence: true
   attestation_statement: null
+  isms_domain: asset_management
 
 - template_id: cbt-e-002
   title: "Patch management status — critical patches applied within SLA"
@@ -278,6 +300,7 @@
   related_control_id: ctrl-018
   requires_evidence: false
   attestation_statement: null
+  isms_domain: asset_management
 
 - template_id: cbt-e-003
   title: "Secure development standards reviewed; exceptions documented"
@@ -289,6 +312,7 @@
   related_control_id: ctrl-016
   requires_evidence: false
   attestation_statement: null
+  isms_domain: asset_management
 
 - template_id: cbt-e-004
   title: "Change management log reviewed for unauthorised production changes"
@@ -300,6 +324,7 @@
   related_control_id: ctrl-019
   requires_evidence: false
   attestation_statement: null
+  isms_domain: asset_management
 
 - template_id: cbt-e-005
   title: "Network segmentation and firewall rules reviewed"
@@ -311,6 +336,7 @@
   related_control_id: ctrl-016
   requires_evidence: true
   attestation_statement: null
+  isms_domain: asset_management
 
 # ============================================================================
 # (f) Policies and procedures for effectiveness assessment
@@ -326,6 +352,7 @@
   related_control_id: ctrl-020
   requires_evidence: true
   attestation_statement: null
+  isms_domain: audit_training
 
 - template_id: cbt-f-002
   title: "Internal ISMS audit conducted"
@@ -337,6 +364,7 @@
   related_control_id: ctrl-020
   requires_evidence: true
   attestation_statement: null
+  isms_domain: audit_training
 
 - template_id: cbt-f-003
   title: "Management review of ISMS effectiveness"
@@ -348,6 +376,7 @@
   related_control_id: ctrl-021
   requires_evidence: true
   attestation_statement: null
+  isms_domain: audit_training
 
 - template_id: cbt-f-004
   title: "Penetration test findings tracked to closure"
@@ -359,6 +388,7 @@
   related_control_id: ctrl-022
   requires_evidence: false
   attestation_statement: null
+  isms_domain: audit_training
 
 - template_id: cbt-f-005
   title: "Compliance obligations register reviewed"
@@ -370,6 +400,7 @@
   related_control_id: ctrl-020
   requires_evidence: false
   attestation_statement: null
+  isms_domain: audit_training
 
 # ============================================================================
 # (g) Basic cyber hygiene & security training
@@ -385,6 +416,7 @@
   related_control_id: ctrl-023
   requires_evidence: false
   attestation_statement: null
+  isms_domain: audit_training
 
 - template_id: cbt-g-002
   title: "Phishing simulation conducted; click-through rate reviewed"
@@ -396,6 +428,7 @@
   related_control_id: ctrl-023
   requires_evidence: true
   attestation_statement: null
+  isms_domain: audit_training
 
 - template_id: cbt-g-003
   title: "I confirm I have read and will follow the Acceptable Use Policy"
@@ -407,6 +440,7 @@
   related_control_id: ctrl-024
   requires_evidence: false
   attestation_statement: "I confirm that I have read and will follow the organisation's Acceptable Use Policy."
+  isms_domain: policy_governance
 
 - template_id: cbt-g-004
   title: "I confirm I have completed security awareness training"
@@ -418,6 +452,7 @@
   related_control_id: ctrl-023
   requires_evidence: false
   attestation_statement: "I confirm that I have completed the required security awareness training."
+  isms_domain: audit_training
 
 - template_id: cbt-g-005
   title: "Cyber hygiene baseline check"
@@ -429,6 +464,7 @@
   related_control_id: ctrl-024
   requires_evidence: false
   attestation_statement: null
+  isms_domain: audit_training
 
 # ============================================================================
 # (h) Cryptography & encryption
@@ -444,6 +480,7 @@
   related_control_id: ctrl-025
   requires_evidence: false
   attestation_statement: null
+  isms_domain: access_control
 
 - template_id: cbt-h-002
   title: "Cryptographic controls reviewed against current standards"
@@ -455,6 +492,7 @@
   related_control_id: ctrl-025
   requires_evidence: true
   attestation_statement: "I confirm that cryptographic controls have been reviewed against current standards and are adequate."
+  isms_domain: access_control
 
 - template_id: cbt-h-003
   title: "Key rotation performed where due; exceptions documented"
@@ -466,6 +504,7 @@
   related_control_id: ctrl-026
   requires_evidence: false
   attestation_statement: null
+  isms_domain: access_control
 
 - template_id: cbt-h-004
   title: "I confirm all laptops and mobile devices have disk encryption enabled"
@@ -477,6 +516,7 @@
   related_control_id: ctrl-025
   requires_evidence: false
   attestation_statement: "I confirm that all company laptops and mobile devices have disk encryption enabled."
+  isms_domain: access_control
 
 # ============================================================================
 # (i) Human resources security, access control & asset management
@@ -492,6 +532,7 @@
   related_control_id: ctrl-029
   requires_evidence: true
   attestation_statement: null
+  isms_domain: access_control
 
 - template_id: cbt-i-002
   title: "Privileged account list reviewed; dormant admin accounts disabled"
@@ -503,6 +544,7 @@
   related_control_id: ctrl-030
   requires_evidence: false
   attestation_statement: null
+  isms_domain: access_control
 
 - template_id: cbt-i-003
   title: "Access review — user access for {critical_process}"
@@ -515,6 +557,7 @@
   requires_evidence: true
   attestation_statement: null
   per_process: true
+  isms_domain: access_control
 
 - template_id: cbt-i-004
   title: "Asset inventory reviewed; new assets tagged; decommissioned assets wiped"
@@ -526,6 +569,7 @@
   related_control_id: ctrl-031
   requires_evidence: false
   attestation_statement: null
+  isms_domain: asset_management
 
 - template_id: cbt-i-005
   title: "I confirm no production access was granted without documented approval"
@@ -537,6 +581,7 @@
   related_control_id: ctrl-030
   requires_evidence: false
   attestation_statement: "I confirm that no production access was granted this month without documented approval."
+  isms_domain: access_control
 
 # ============================================================================
 # (j) Multi-factor authentication, secured communications, emergency comms
@@ -552,6 +597,7 @@
   related_control_id: ctrl-033
   requires_evidence: true
   attestation_statement: null
+  isms_domain: access_control
 
 - template_id: cbt-j-002
   title: "Secure communication channels for incident response tested"
@@ -563,6 +609,7 @@
   related_control_id: ctrl-034
   requires_evidence: false
   attestation_statement: null
+  isms_domain: access_control
 
 - template_id: cbt-j-003
   title: "Emergency communication systems (out-of-band) tested"
@@ -574,6 +621,7 @@
   related_control_id: ctrl-034
   requires_evidence: true
   attestation_statement: null
+  isms_domain: access_control
 
 - template_id: cbt-j-004
   title: "I confirm no shared accounts are in active use"
@@ -585,6 +633,7 @@
   related_control_id: ctrl-033
   requires_evidence: false
   attestation_statement: "I confirm that no shared or generic accounts are in active use for production systems."
+  isms_domain: access_control
 
 # ============================================================================
 # Cross-cutting compliance-in-practice attestations (monthly)
@@ -600,6 +649,7 @@
   related_control_id: ctrl-029
   requires_evidence: false
   attestation_statement: "I confirm that all new hires this month completed the security onboarding checklist including account setup, training, and policy acknowledgment."
+  isms_domain: access_control
 
 - template_id: cbt-x-002
   title: "I confirm logs for {critical_process} have been reviewed this month"
@@ -612,6 +662,7 @@
   requires_evidence: false
   attestation_statement: "I confirm that security-relevant logs for {critical_process} have been reviewed this month."
   per_process: true
+  isms_domain: asset_management
 
 - template_id: cbt-x-003
   title: "I confirm security patches marked critical were applied within 14 days"
@@ -623,6 +674,7 @@
   related_control_id: ctrl-018
   requires_evidence: false
   attestation_statement: "I confirm that all security patches marked critical were applied within 14 days this month."
+  isms_domain: asset_management
 
 - template_id: cbt-x-004
   title: "I confirm data retention rules were applied to deletable data this month"
@@ -634,3 +686,241 @@
   related_control_id: ctrl-031
   requires_evidence: false
   attestation_statement: "I confirm that data retention rules were reviewed and applied to deletable data this month."
+  isms_domain: policy_governance
+
+# ============================================================================
+# ISMS-specific tasks: Policy & Governance
+# ============================================================================
+
+- template_id: cbt-isms-001
+  title: "Acceptable use policy reviewed and acknowledged by all staff"
+  description: "Confirm that the acceptable use policy has been reviewed for currency and all active staff have acknowledged it."
+  task_type: policy_ack
+  pdca_phase: check
+  article_21_subsection: "a"
+  frequency: annual
+  related_control_id: ctrl-024
+  requires_evidence: true
+  attestation_statement: "I confirm that the acceptable use policy has been reviewed and all active staff have acknowledged it."
+  isms_domain: policy_governance
+
+- template_id: cbt-isms-002
+  title: "Data classification policy reviewed"
+  description: "Review the data classification policy to ensure categories, handling rules, and labelling are current."
+  task_type: attestation
+  pdca_phase: check
+  article_21_subsection: "a"
+  frequency: annual
+  related_control_id: ctrl-001
+  requires_evidence: false
+  attestation_statement: "I confirm that the data classification policy has been reviewed and remains current."
+  isms_domain: policy_governance
+
+- template_id: cbt-isms-003
+  title: "Information security objectives reviewed and approved by leadership"
+  description: "Review and approve measurable information security objectives aligned with business strategy."
+  task_type: attestation
+  pdca_phase: plan
+  article_21_subsection: "a"
+  frequency: annual
+  related_control_id: ctrl-001
+  requires_evidence: true
+  attestation_statement: "I confirm that information security objectives have been reviewed and approved by leadership."
+  isms_domain: policy_governance
+
+- template_id: cbt-isms-004
+  title: "Document control and retention policy reviewed"
+  description: "Review the document control and retention policy covering versioning, approval workflows, and retention periods."
+  task_type: attestation
+  pdca_phase: check
+  article_21_subsection: "a"
+  frequency: annual
+  related_control_id: ctrl-001
+  requires_evidence: false
+  attestation_statement: "I confirm that the document control and retention policy has been reviewed and is current."
+  isms_domain: policy_governance
+
+# ============================================================================
+# ISMS-specific tasks: Risk Management
+# ============================================================================
+
+- template_id: cbt-isms-005
+  title: "Risk appetite statement reviewed by management"
+  description: "Review and confirm the organisation's risk appetite statement with senior management."
+  task_type: attestation
+  pdca_phase: plan
+  article_21_subsection: "a"
+  frequency: annual
+  related_control_id: ctrl-002
+  requires_evidence: true
+  attestation_statement: "I confirm that the risk appetite statement has been reviewed and approved by management."
+  isms_domain: risk_management
+
+- template_id: cbt-isms-006
+  title: "Third-party risk assessments completed"
+  description: "Complete risk assessments for all new third-party vendors and review existing assessments that are due."
+  task_type: process_check
+  pdca_phase: do
+  article_21_subsection: "d"
+  frequency: quarterly
+  related_control_id: ctrl-014
+  requires_evidence: true
+  attestation_statement: null
+  isms_domain: risk_management
+
+- template_id: cbt-isms-007
+  title: "Risk register presented to management board"
+  description: "Present the risk register summary and top risks to the management board for visibility and decision-making."
+  task_type: attestation
+  pdca_phase: check
+  article_21_subsection: "a"
+  frequency: quarterly
+  related_control_id: ctrl-002
+  requires_evidence: true
+  attestation_statement: "I confirm that the risk register was presented to the management board this quarter."
+  isms_domain: risk_management
+
+- template_id: cbt-isms-008
+  title: "Risk treatment plan effectiveness reviewed"
+  description: "Review the effectiveness of risk treatment actions and update residual risk ratings where necessary."
+  task_type: process_check
+  pdca_phase: act
+  article_21_subsection: "a"
+  frequency: quarterly
+  related_control_id: ctrl-003
+  requires_evidence: false
+  attestation_statement: null
+  isms_domain: risk_management
+
+# ============================================================================
+# ISMS-specific tasks: Incident Management
+# ============================================================================
+
+- template_id: cbt-isms-009
+  title: "Incident response plan reviewed and updated"
+  description: "Review the incident response plan for completeness, update contact lists, and confirm alignment with NIS2 reporting requirements."
+  task_type: attestation
+  pdca_phase: check
+  article_21_subsection: "b"
+  frequency: annual
+  related_control_id: ctrl-005
+  requires_evidence: true
+  attestation_statement: "I confirm that the incident response plan has been reviewed, updated, and is aligned with NIS2 reporting requirements."
+  isms_domain: incident_management
+
+- template_id: cbt-isms-010
+  title: "Lessons learned from incidents documented"
+  description: "Document lessons learned from security incidents this quarter and identify improvement actions."
+  task_type: process_check
+  pdca_phase: act
+  article_21_subsection: "b"
+  frequency: quarterly
+  related_control_id: ctrl-007
+  requires_evidence: true
+  attestation_statement: null
+  isms_domain: incident_management
+
+- template_id: cbt-isms-011
+  title: "Incident severity classification scheme reviewed"
+  description: "Review the incident severity classification scheme to ensure categories and escalation paths are appropriate."
+  task_type: attestation
+  pdca_phase: plan
+  article_21_subsection: "b"
+  frequency: annual
+  related_control_id: ctrl-006
+  requires_evidence: false
+  attestation_statement: "I confirm that the incident severity classification scheme has been reviewed and is appropriate."
+  isms_domain: incident_management
+
+- template_id: cbt-isms-012
+  title: "Security incident communication plan tested"
+  description: "Test the security incident communication plan including internal escalation and external notification procedures."
+  task_type: process_check
+  pdca_phase: do
+  article_21_subsection: "b"
+  frequency: annual
+  related_control_id: ctrl-006
+  requires_evidence: true
+  attestation_statement: null
+  isms_domain: incident_management
+
+# ============================================================================
+# ISMS-specific tasks: Asset & Change Management
+# ============================================================================
+
+- template_id: cbt-isms-013
+  title: "Asset inventory updated and verified"
+  description: "Update the IT asset inventory, verify asset owners, and confirm classification labels are correct."
+  task_type: process_check
+  pdca_phase: do
+  article_21_subsection: "i"
+  frequency: quarterly
+  related_control_id: ctrl-031
+  requires_evidence: true
+  attestation_statement: null
+  isms_domain: asset_management
+
+- template_id: cbt-isms-014
+  title: "Data flow mapping reviewed for {critical_process}"
+  description: "Review the data flow map for this critical process to ensure data sources, storage, and transfers are documented."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "e"
+  frequency: annual
+  related_control_id: ctrl-016
+  requires_evidence: false
+  attestation_statement: null
+  per_process: true
+  isms_domain: asset_management
+
+- template_id: cbt-isms-015
+  title: "Change management log reviewed"
+  description: "Review the change management log to confirm all changes followed the approval process and no emergency changes remain open."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "e"
+  frequency: monthly
+  related_control_id: ctrl-019
+  requires_evidence: false
+  attestation_statement: null
+  isms_domain: asset_management
+
+- template_id: cbt-isms-016
+  title: "Media disposal and sanitization procedures verified"
+  description: "Verify that media disposal and data sanitization procedures were followed for decommissioned equipment."
+  task_type: attestation
+  pdca_phase: do
+  article_21_subsection: "i"
+  frequency: annual
+  related_control_id: ctrl-031
+  requires_evidence: true
+  attestation_statement: "I confirm that all media disposal and data sanitization this year followed approved procedures."
+  isms_domain: asset_management
+
+# ============================================================================
+# ISMS-specific tasks: Audit, Training & Awareness
+# ============================================================================
+
+- template_id: cbt-isms-017
+  title: "Internal ISMS audit completed"
+  description: "Complete an internal ISMS audit covering all domains and document findings, non-conformities, and recommendations."
+  task_type: evidence_submission
+  pdca_phase: check
+  article_21_subsection: "f"
+  frequency: annual
+  related_control_id: ctrl-020
+  requires_evidence: true
+  attestation_statement: null
+  isms_domain: audit_training
+
+- template_id: cbt-isms-018
+  title: "Management review meeting conducted and minuted"
+  description: "Conduct the annual management review meeting covering ISMS performance, audit results, risk status, and improvement actions. Minutes must be documented."
+  task_type: evidence_submission
+  pdca_phase: act
+  article_21_subsection: "f"
+  frequency: annual
+  related_control_id: ctrl-021
+  requires_evidence: true
+  attestation_statement: null
+  isms_domain: audit_training

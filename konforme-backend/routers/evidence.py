@@ -15,6 +15,7 @@ from config import settings
 from database import get_db
 from models import Account, Evidence, EvidenceLink, User
 from schemas import (
+    EvidenceLinkedEntity,
     EvidenceLinkRequest,
     EvidenceLinkResponse,
     EvidenceLibraryItem,
@@ -226,6 +227,14 @@ def search_evidence_library(
                 tags_list = json.loads(ev.tags)
             except (json.JSONDecodeError, TypeError):
                 pass
+        linked_entities = [
+            EvidenceLinkedEntity(
+                entityType=le["entity_type"],
+                entityId=le["entity_id"],
+                entityName=le["entity_name"],
+            )
+            for le in item.get("linked_entities", [])
+        ]
         items.append(EvidenceLibraryItem(
             id=ev.id,
             filename=ev.filename,
@@ -237,6 +246,7 @@ def search_evidence_library(
             uploadedAt=ev.uploaded_at.isoformat() if ev.uploaded_at else "",
             uploadedBy=ev.uploaded_by,
             linkCount=item["link_count"],
+            linkedEntities=linked_entities,
         ))
 
     return EvidenceLibraryResponse(items=items, total=total, page=page, perPage=per_page)

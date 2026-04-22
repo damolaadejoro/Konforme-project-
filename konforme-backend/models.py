@@ -739,6 +739,7 @@ class PeopleTask(Base):
     requires_evidence: Mapped[bool] = mapped_column(Boolean, default=False)
     attestation_statement: Mapped[str | None] = mapped_column(Text, nullable=True)
     baseline_template_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    isms_domain: Mapped[str | None] = mapped_column(String(50), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
