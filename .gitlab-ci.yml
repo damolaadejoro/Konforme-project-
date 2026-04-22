@@ -38,11 +38,8 @@ backend-build:
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
   before_script:
-    - apk add --no-cache curl unzip gcompat libgcc
-    - curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscli.zip
-    - unzip -q /tmp/awscli.zip -d /tmp && /tmp/aws/install
-    - aws --version
-    - aws ecr get-login-password --region ${AWS_DEFAULT_REGION}
+    - docker run --rm -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION
+      amazon/aws-cli ecr get-login-password --region ${AWS_DEFAULT_REGION}
       | docker login --username AWS --password-stdin ${ECR_REGISTRY}
   script:
     - cp -r data/ konforme-backend/data/
