@@ -1,0 +1,636 @@
+# NIS2 Article 21 Continuous Compliance Baseline Tasks
+# Each task maps to an Article 21(2) subsection (a-j) and a PDCA phase.
+# Tasks with per_process: true are instantiated once per critical business process.
+# {critical_process} placeholders are replaced with the process name at instantiation time.
+
+# ============================================================================
+# (a) Risk analysis & information system security policies
+# ============================================================================
+
+- template_id: cbt-a-001
+  title: "Information security policy reviewed and re-approved by management"
+  description: "Confirm that the organisation's information security policy has been reviewed, is current, and has been approved by management."
+  task_type: attestation
+  pdca_phase: check
+  article_21_subsection: "a"
+  frequency: annual
+  related_control_id: ctrl-001
+  requires_evidence: true
+  attestation_statement: "I confirm that our information security policy has been reviewed within the last 12 months, remains current, and has been approved by management."
+
+- template_id: cbt-a-002
+  title: "Risk register reviewed and updated"
+  description: "Verify the risk register has been reviewed, new risks identified, and existing risk ratings reassessed."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "a"
+  frequency: quarterly
+  related_control_id: ctrl-002
+  requires_evidence: true
+  attestation_statement: null
+
+- template_id: cbt-a-003
+  title: "Risk assessment completed for {critical_process}"
+  description: "Confirm that a risk assessment covering threats, vulnerabilities, and impacts has been completed for this critical business process."
+  task_type: attestation
+  pdca_phase: do
+  article_21_subsection: "a"
+  frequency: annual
+  related_control_id: ctrl-002
+  requires_evidence: true
+  attestation_statement: "I confirm that a risk assessment has been completed for {critical_process} within the last 12 months."
+  per_process: true
+
+- template_id: cbt-a-004
+  title: "Security roles and responsibilities reviewed"
+  description: "Verify that information security roles and responsibilities are documented, assigned, and communicated."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "a"
+  frequency: annual
+  related_control_id: ctrl-004
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-a-005
+  title: "Risk treatment plan progress reviewed"
+  description: "Review progress on the risk treatment plan and confirm mitigations are on track."
+  task_type: process_check
+  pdca_phase: act
+  article_21_subsection: "a"
+  frequency: quarterly
+  related_control_id: ctrl-003
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-a-006
+  title: "Information security objectives reviewed"
+  description: "Review whether information security objectives remain appropriate and measurable."
+  task_type: attestation
+  pdca_phase: plan
+  article_21_subsection: "a"
+  frequency: annual
+  related_control_id: ctrl-001
+  requires_evidence: false
+  attestation_statement: "I confirm that information security objectives have been reviewed and remain aligned with business goals."
+
+# ============================================================================
+# (b) Incident handling
+# ============================================================================
+
+- template_id: cbt-b-001
+  title: "Incident log reviewed; open incidents have owners and target closure dates"
+  description: "Review the incident log to ensure all open incidents have assigned owners and target resolution dates."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "b"
+  frequency: monthly
+  related_control_id: ctrl-007
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-b-002
+  title: "Incident response plan tabletop exercise conducted"
+  description: "Conduct a tabletop exercise to test the incident response plan and document lessons learned."
+  task_type: evidence_submission
+  pdca_phase: do
+  article_21_subsection: "b"
+  frequency: quarterly
+  related_control_id: ctrl-005
+  requires_evidence: true
+  attestation_statement: null
+
+- template_id: cbt-b-003
+  title: "Incident notification process reviewed"
+  description: "Verify that the incident notification process (including NIS2 reporting timelines) is documented and understood by responders."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "b"
+  frequency: quarterly
+  related_control_id: ctrl-006
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-b-004
+  title: "CSIRT/competent authority contact details verified"
+  description: "Confirm that contact details for the national CSIRT and competent authority are current and accessible."
+  task_type: attestation
+  pdca_phase: do
+  article_21_subsection: "b"
+  frequency: annual
+  related_control_id: ctrl-008
+  requires_evidence: false
+  attestation_statement: "I confirm that CSIRT and competent authority contact details have been verified and are current."
+
+- template_id: cbt-b-005
+  title: "Incident metrics reviewed (MTTD, MTTR)"
+  description: "Review incident detection and response metrics to identify trends and improvement areas."
+  task_type: process_check
+  pdca_phase: act
+  article_21_subsection: "b"
+  frequency: quarterly
+  related_control_id: ctrl-007
+  requires_evidence: true
+  attestation_statement: null
+
+# ============================================================================
+# (c) Business continuity, backup management, crisis management
+# ============================================================================
+
+- template_id: cbt-c-001
+  title: "Backup job status reviewed; failures investigated"
+  description: "Review backup job logs, investigate any failures, and confirm all critical systems are being backed up."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "c"
+  frequency: monthly
+  related_control_id: ctrl-011
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-c-002
+  title: "Backup restore test performed on {critical_process}"
+  description: "Perform a backup restore test for this critical process and document the results."
+  task_type: process_check
+  pdca_phase: do
+  article_21_subsection: "c"
+  frequency: monthly
+  related_control_id: ctrl-011
+  requires_evidence: true
+  attestation_statement: null
+  per_process: true
+
+- template_id: cbt-c-003
+  title: "BCP / disaster recovery test executed end-to-end"
+  description: "Execute an end-to-end business continuity or disaster recovery test and document results."
+  task_type: evidence_submission
+  pdca_phase: do
+  article_21_subsection: "c"
+  frequency: annual
+  related_control_id: ctrl-010
+  requires_evidence: true
+  attestation_statement: null
+
+- template_id: cbt-c-004
+  title: "Crisis communication plan reviewed and contact list verified"
+  description: "Review the crisis communication plan and verify that all contact details are current."
+  task_type: attestation
+  pdca_phase: check
+  article_21_subsection: "c"
+  frequency: annual
+  related_control_id: ctrl-012
+  requires_evidence: false
+  attestation_statement: "I confirm that the crisis communication plan has been reviewed and the contact list is current."
+
+- template_id: cbt-c-005
+  title: "Business impact analysis reviewed for {critical_process}"
+  description: "Review the business impact analysis for this critical process and confirm RTOs/RPOs are still appropriate."
+  task_type: process_check
+  pdca_phase: plan
+  article_21_subsection: "c"
+  frequency: annual
+  related_control_id: ctrl-010
+  requires_evidence: false
+  attestation_statement: null
+  per_process: true
+
+# ============================================================================
+# (d) Supply chain security
+# ============================================================================
+
+- template_id: cbt-d-001
+  title: "Critical supplier list reviewed; new suppliers risk-assessed"
+  description: "Review the list of critical suppliers and confirm new suppliers have undergone security risk assessment."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "d"
+  frequency: quarterly
+  related_control_id: ctrl-014
+  requires_evidence: true
+  attestation_statement: null
+
+- template_id: cbt-d-002
+  title: "Supplier security review — critical suppliers"
+  description: "Conduct annual security review of critical suppliers including assessment of their security posture."
+  task_type: evidence_submission
+  pdca_phase: do
+  article_21_subsection: "d"
+  frequency: annual
+  related_control_id: ctrl-014
+  requires_evidence: true
+  attestation_statement: null
+
+- template_id: cbt-d-003
+  title: "Supplier incident notifications reviewed"
+  description: "Review any security incident notifications received from suppliers this quarter."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "d"
+  frequency: quarterly
+  related_control_id: ctrl-015
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-d-004
+  title: "Supply chain contract security clauses reviewed"
+  description: "Verify that security requirements are included in contracts with critical suppliers."
+  task_type: attestation
+  pdca_phase: plan
+  article_21_subsection: "d"
+  frequency: annual
+  related_control_id: ctrl-014
+  requires_evidence: false
+  attestation_statement: "I confirm that security clauses in critical supplier contracts have been reviewed and are adequate."
+
+- template_id: cbt-d-005
+  title: "Third-party access rights reviewed"
+  description: "Review and validate access rights granted to third-party suppliers and service providers."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "d"
+  frequency: quarterly
+  related_control_id: ctrl-015
+  requires_evidence: true
+  attestation_statement: null
+
+# ============================================================================
+# (e) Security in acquisition, development & maintenance of systems
+# ============================================================================
+
+- template_id: cbt-e-001
+  title: "Vulnerability scan results reviewed; remediation SLAs met"
+  description: "Review vulnerability scan results and confirm critical/high vulnerabilities are remediated within SLA."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "e"
+  frequency: monthly
+  related_control_id: ctrl-017
+  requires_evidence: true
+  attestation_statement: null
+
+- template_id: cbt-e-002
+  title: "Patch management status — critical patches applied within SLA"
+  description: "Verify that critical security patches have been applied within the defined SLA."
+  task_type: process_check
+  pdca_phase: do
+  article_21_subsection: "e"
+  frequency: monthly
+  related_control_id: ctrl-018
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-e-003
+  title: "Secure development standards reviewed; exceptions documented"
+  description: "Review secure development standards and document any exceptions or deviations."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "e"
+  frequency: quarterly
+  related_control_id: ctrl-016
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-e-004
+  title: "Change management log reviewed for unauthorised production changes"
+  description: "Review the change management log and confirm no unauthorised changes were deployed to production."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "e"
+  frequency: quarterly
+  related_control_id: ctrl-019
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-e-005
+  title: "Network segmentation and firewall rules reviewed"
+  description: "Review network segmentation and firewall rules to confirm they match the approved architecture."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "e"
+  frequency: quarterly
+  related_control_id: ctrl-016
+  requires_evidence: true
+  attestation_statement: null
+
+# ============================================================================
+# (f) Policies and procedures for effectiveness assessment
+# ============================================================================
+
+- template_id: cbt-f-001
+  title: "Security KPIs reviewed (MTTD, MTTR, patch compliance %, training completion %)"
+  description: "Review key security performance indicators and confirm they meet target thresholds."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "f"
+  frequency: monthly
+  related_control_id: ctrl-020
+  requires_evidence: true
+  attestation_statement: null
+
+- template_id: cbt-f-002
+  title: "Internal ISMS audit conducted"
+  description: "Conduct or commission an internal ISMS audit and document findings."
+  task_type: evidence_submission
+  pdca_phase: act
+  article_21_subsection: "f"
+  frequency: annual
+  related_control_id: ctrl-020
+  requires_evidence: true
+  attestation_statement: null
+
+- template_id: cbt-f-003
+  title: "Management review of ISMS effectiveness"
+  description: "Management reviews ISMS effectiveness, audit findings, and improvement opportunities."
+  task_type: evidence_submission
+  pdca_phase: act
+  article_21_subsection: "f"
+  frequency: annual
+  related_control_id: ctrl-021
+  requires_evidence: true
+  attestation_statement: null
+
+- template_id: cbt-f-004
+  title: "Penetration test findings tracked to closure"
+  description: "Review open penetration test findings and confirm remediation progress."
+  task_type: process_check
+  pdca_phase: act
+  article_21_subsection: "f"
+  frequency: quarterly
+  related_control_id: ctrl-022
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-f-005
+  title: "Compliance obligations register reviewed"
+  description: "Review the register of legal, regulatory, and contractual compliance obligations."
+  task_type: process_check
+  pdca_phase: plan
+  article_21_subsection: "f"
+  frequency: annual
+  related_control_id: ctrl-020
+  requires_evidence: false
+  attestation_statement: null
+
+# ============================================================================
+# (g) Basic cyber hygiene & security training
+# ============================================================================
+
+- template_id: cbt-g-001
+  title: "Security awareness training completion rate reviewed"
+  description: "Confirm that active employees have completed security awareness training (target >= 95%)."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "g"
+  frequency: monthly
+  related_control_id: ctrl-023
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-g-002
+  title: "Phishing simulation conducted; click-through rate reviewed"
+  description: "Conduct a phishing simulation and review results including click-through rates."
+  task_type: evidence_submission
+  pdca_phase: do
+  article_21_subsection: "g"
+  frequency: quarterly
+  related_control_id: ctrl-023
+  requires_evidence: true
+  attestation_statement: null
+
+- template_id: cbt-g-003
+  title: "I confirm I have read and will follow the Acceptable Use Policy"
+  description: "Annual attestation that the Acceptable Use Policy has been read and understood."
+  task_type: policy_ack
+  pdca_phase: do
+  article_21_subsection: "g"
+  frequency: annual
+  related_control_id: ctrl-024
+  requires_evidence: false
+  attestation_statement: "I confirm that I have read and will follow the organisation's Acceptable Use Policy."
+
+- template_id: cbt-g-004
+  title: "I confirm I have completed security awareness training"
+  description: "Annual attestation that security awareness training has been completed."
+  task_type: attestation
+  pdca_phase: do
+  article_21_subsection: "g"
+  frequency: annual
+  related_control_id: ctrl-023
+  requires_evidence: false
+  attestation_statement: "I confirm that I have completed the required security awareness training."
+
+- template_id: cbt-g-005
+  title: "Cyber hygiene baseline check"
+  description: "Verify that basic cyber hygiene controls (password policy, screen lock, software updates) are enforced."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "g"
+  frequency: quarterly
+  related_control_id: ctrl-024
+  requires_evidence: false
+  attestation_statement: null
+
+# ============================================================================
+# (h) Cryptography & encryption
+# ============================================================================
+
+- template_id: cbt-h-001
+  title: "TLS / SSL certificate expiry report reviewed; renewals scheduled"
+  description: "Review the TLS/SSL certificate inventory and schedule renewals for certificates expiring within 60 days."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "h"
+  frequency: monthly
+  related_control_id: ctrl-025
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-h-002
+  title: "Cryptographic controls reviewed against current standards"
+  description: "Review cryptographic algorithms, key lengths, and protocols against current industry standards."
+  task_type: attestation
+  pdca_phase: check
+  article_21_subsection: "h"
+  frequency: annual
+  related_control_id: ctrl-025
+  requires_evidence: true
+  attestation_statement: "I confirm that cryptographic controls have been reviewed against current standards and are adequate."
+
+- template_id: cbt-h-003
+  title: "Key rotation performed where due; exceptions documented"
+  description: "Perform scheduled key rotations and document any exceptions."
+  task_type: process_check
+  pdca_phase: do
+  article_21_subsection: "h"
+  frequency: quarterly
+  related_control_id: ctrl-026
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-h-004
+  title: "I confirm all laptops and mobile devices have disk encryption enabled"
+  description: "Attestation that endpoint encryption is enforced on all company devices."
+  task_type: attestation
+  pdca_phase: do
+  article_21_subsection: "h"
+  frequency: quarterly
+  related_control_id: ctrl-025
+  requires_evidence: false
+  attestation_statement: "I confirm that all company laptops and mobile devices have disk encryption enabled."
+
+# ============================================================================
+# (i) Human resources security, access control & asset management
+# ============================================================================
+
+- template_id: cbt-i-001
+  title: "Leaver access revocation — all leavers had access revoked within 24h"
+  description: "Verify that all employees who left this month had their access revoked within 24 hours."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "i"
+  frequency: monthly
+  related_control_id: ctrl-029
+  requires_evidence: true
+  attestation_statement: null
+
+- template_id: cbt-i-002
+  title: "Privileged account list reviewed; dormant admin accounts disabled"
+  description: "Review the list of privileged accounts and disable any dormant admin accounts."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "i"
+  frequency: monthly
+  related_control_id: ctrl-030
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-i-003
+  title: "Access review — user access for {critical_process}"
+  description: "Review the user access list for this critical process, revoke leavers, and verify privilege levels."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "i"
+  frequency: quarterly
+  related_control_id: ctrl-030
+  requires_evidence: true
+  attestation_statement: null
+  per_process: true
+
+- template_id: cbt-i-004
+  title: "Asset inventory reviewed; new assets tagged; decommissioned assets wiped"
+  description: "Review the IT asset inventory, tag new assets, and confirm decommissioned assets have been securely wiped."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "i"
+  frequency: quarterly
+  related_control_id: ctrl-031
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-i-005
+  title: "I confirm no production access was granted without documented approval"
+  description: "Monthly attestation that all production access grants followed the approval process."
+  task_type: attestation
+  pdca_phase: do
+  article_21_subsection: "i"
+  frequency: monthly
+  related_control_id: ctrl-030
+  requires_evidence: false
+  attestation_statement: "I confirm that no production access was granted this month without documented approval."
+
+# ============================================================================
+# (j) Multi-factor authentication, secured communications, emergency comms
+# ============================================================================
+
+- template_id: cbt-j-001
+  title: "MFA coverage report reviewed — 100% admin, >= 95% users"
+  description: "Review the MFA coverage report and confirm admin accounts have 100% MFA and user accounts >= 95%."
+  task_type: process_check
+  pdca_phase: check
+  article_21_subsection: "j"
+  frequency: monthly
+  related_control_id: ctrl-033
+  requires_evidence: true
+  attestation_statement: null
+
+- template_id: cbt-j-002
+  title: "Secure communication channels for incident response tested"
+  description: "Test the secure/out-of-band communication channels used during incident response."
+  task_type: process_check
+  pdca_phase: do
+  article_21_subsection: "j"
+  frequency: quarterly
+  related_control_id: ctrl-034
+  requires_evidence: false
+  attestation_statement: null
+
+- template_id: cbt-j-003
+  title: "Emergency communication systems (out-of-band) tested"
+  description: "Test emergency communication systems to ensure they function when primary channels are compromised."
+  task_type: evidence_submission
+  pdca_phase: do
+  article_21_subsection: "j"
+  frequency: annual
+  related_control_id: ctrl-034
+  requires_evidence: true
+  attestation_statement: null
+
+- template_id: cbt-j-004
+  title: "I confirm no shared accounts are in active use"
+  description: "Monthly attestation that no shared or generic accounts are being used for production access."
+  task_type: attestation
+  pdca_phase: do
+  article_21_subsection: "j"
+  frequency: monthly
+  related_control_id: ctrl-033
+  requires_evidence: false
+  attestation_statement: "I confirm that no shared or generic accounts are in active use for production systems."
+
+# ============================================================================
+# Cross-cutting compliance-in-practice attestations (monthly)
+# ============================================================================
+
+- template_id: cbt-x-001
+  title: "I confirm new hires completed onboarding checklist (accounts, training, policy ack)"
+  description: "Monthly attestation that all new hires this month completed the security onboarding checklist."
+  task_type: attestation
+  pdca_phase: do
+  article_21_subsection: "i"
+  frequency: monthly
+  related_control_id: ctrl-029
+  requires_evidence: false
+  attestation_statement: "I confirm that all new hires this month completed the security onboarding checklist including account setup, training, and policy acknowledgment."
+
+- template_id: cbt-x-002
+  title: "I confirm logs for {critical_process} have been reviewed this month"
+  description: "Monthly attestation that security-relevant logs for this critical process have been reviewed."
+  task_type: attestation
+  pdca_phase: check
+  article_21_subsection: "e"
+  frequency: monthly
+  related_control_id: ctrl-019
+  requires_evidence: false
+  attestation_statement: "I confirm that security-relevant logs for {critical_process} have been reviewed this month."
+  per_process: true
+
+- template_id: cbt-x-003
+  title: "I confirm security patches marked critical were applied within 14 days"
+  description: "Monthly attestation that all critical security patches were applied within the 14-day SLA."
+  task_type: attestation
+  pdca_phase: do
+  article_21_subsection: "e"
+  frequency: monthly
+  related_control_id: ctrl-018
+  requires_evidence: false
+  attestation_statement: "I confirm that all security patches marked critical were applied within 14 days this month."
+
+- template_id: cbt-x-004
+  title: "I confirm data retention rules were applied to deletable data this month"
+  description: "Monthly attestation that data retention rules were applied and eligible data was securely deleted."
+  task_type: attestation
+  pdca_phase: do
+  article_21_subsection: "i"
+  frequency: monthly
+  related_control_id: ctrl-031
+  requires_evidence: false
+  attestation_statement: "I confirm that data retention rules were reviewed and applied to deletable data this month."

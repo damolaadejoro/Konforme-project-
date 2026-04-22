@@ -10,12 +10,13 @@ from auth import enforce_account_access, get_current_account
 from config import settings
 from database import get_db
 from email_service import send_campaign_task_email
-from models import Account, AccountControl, CampaignTask, ControlCampaign
+from models import Account, AccountControl, BaseControl, CampaignTask, ControlCampaign
 from rate_limit import limiter
 from schemas import (
     AccountControlBulkRequest,
     AccountControlResponse,
     AccountControlUpdate,
+    BaseControlResponse,
     CampaignResponse,
     CampaignTaskResponse,
     CampaignTaskUpdate,
@@ -66,6 +67,30 @@ def _campaign_to_response(c: ControlCampaign) -> CampaignResponse:
         policyContent=c.policy_content,
         tasks=[_task_to_response(t) for t in c.tasks],
     )
+
+
+# ---------------------------------------------------------------------------
+# Base Controls (public — control definitions, not per-account state)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/base-controls", response_model=list[BaseControlResponse])
+def list_base_controls(db: Session = Depends(get_db)):
+    """Return all 43 NIS2 control definitions. No auth required."""
+    rows = db.query(BaseControl).order_by(BaseControl.display_order).all()
+    return [
+        BaseControlResponse(
+            controlId=c.control_id,
+            title=c.title,
+            description=c.description,
+            article=c.article,
+            articleArea=c.article_area,
+            category=c.category,
+            severity=c.severity,
+            isPeopleControl=c.is_people_control,
+        )
+        for c in rows
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -173,6 +198,7 @@ def update_control(
         ac = AccountControl(account_id=account_id, control_id=control_id)
         db.add(ac)
 
+    old_status = ac.status
     if req.status is not None:
         ac.status = req.status
     if req.owner is not None:
@@ -187,6 +213,31 @@ def update_control(
 
     db.commit()
     db.refresh(ac)
+
+    # Auto-manage remediation tasks based on control status changes
+    if req.status is not None and old_status != req.status:
+        import logging
+        import remediation_service
+        logger = logging.getLogger(__name__)
+        try:
+            if req.status in ("Planned", "Not Started"):
+                task = remediation_service.auto_create_task_for_control(
+                    db, account_id, ac.control_id, ac.status,
+                )
+                if task:
+                    db.commit()
+                    logger.info("Auto-created remediation task for control %s", ac.control_id)
+            elif req.status in ("Implemented", "Partial"):
+                closed = remediation_service.auto_close_tasks_for_control(
+                    db, account_id, ac.control_id, ac.status,
+                )
+                if closed:
+                    db.commit()
+                    logger.info("Auto-closed %d remediation task(s) for control %s", closed, ac.control_id)
+        except Exception as e:
+            logger.error("Auto-manage task for control failed: %s", e, exc_info=True)
+            db.rollback()
+
     return _ctrl_to_response(ac)
 
 
@@ -258,6 +309,7 @@ def create_campaign(
                 task_description=task_desc,
                 completion_url=completion_url,
                 deadline=req.deadline,
+                lang=account.language or "en",
             )
         except Exception:
             pass  # non-critical

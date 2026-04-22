@@ -117,11 +117,11 @@ def _notify_signup(name: str, email: str, country: str | None):
     threading.Thread(target=_send, daemon=True).start()
 
 
-def _send_verification_async(email: str, token: str):
+def _send_verification_async(email: str, token: str, lang: str = "en"):
     """Fire-and-forget verification email."""
     def _send():
         try:
-            send_verification_email(email, token)
+            send_verification_email(email, token, lang=lang)
         except Exception:
             pass
     threading.Thread(target=_send, daemon=True).start()
@@ -175,7 +175,7 @@ def register(req: RegisterRequest, request: Request, response: Response, db: Ses
     log_register(account.id, account.email)
 
     _notify_signup(account.name, account.email, account.country)
-    _send_verification_async(user.email, verification_token)
+    _send_verification_async(user.email, verification_token, lang=account.language or "en")
 
     _set_auth_cookies(response, access_token, refresh_token, csrf_token)
 
@@ -379,7 +379,7 @@ def resend_verification(request: Request, account: Account = Depends(get_current
     user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=VERIFICATION_TOKEN_EXPIRY_HOURS)
     db.commit()
 
-    _send_verification_async(user.email, verification_token)
+    _send_verification_async(user.email, verification_token, lang=account.language or "en")
 
     return {"detail": "Verification email sent"}
 
@@ -415,7 +415,7 @@ def update_email(req: UpdateEmailRequest, request: Request, account: Account = D
     user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=VERIFICATION_TOKEN_EXPIRY_HOURS)
     db.commit()
 
-    _send_verification_async(new_email, verification_token)
+    _send_verification_async(new_email, verification_token, lang=account.language or "en")
 
     return {"detail": "Email updated and verification link sent"}
 
@@ -425,8 +425,12 @@ def update_email(req: UpdateEmailRequest, request: Request, account: Account = D
 def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
     """Step 1: Send a password reset email with a secure token."""
     user = db.query(User).filter(User.email == req.email, User.is_active.is_(True)).first()
+
+    # Always return success to prevent email enumeration
+    success_msg = {"detail": "If an account exists with this email, a password reset link has been sent"}
+
     if not user:
-        raise HTTPException(status_code=404, detail="No account found with this email address")
+        return success_msg
 
     # Generate a secure, time-limited token
     token = secrets.token_urlsafe(32)
@@ -434,15 +438,19 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
     user.password_reset_expires = datetime.now(timezone.utc) + timedelta(hours=1)
     db.commit()
 
+    # Resolve language from the user's account
+    account = db.query(Account).filter(Account.id == user.account_id).first()
+    reset_lang = account.language or "en" if account else "en"
+
     # Fire-and-forget email
     def _send():
         try:
-            send_password_reset_email(user.email, token)
+            send_password_reset_email(user.email, token, lang=reset_lang)
         except Exception:
             pass
     threading.Thread(target=_send, daemon=True).start()
 
-    return {"detail": "Password reset link has been sent to your email"}
+    return success_msg
 
 
 @router.post("/auth/reset-password")

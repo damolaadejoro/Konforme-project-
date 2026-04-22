@@ -8,6 +8,7 @@
   "transposition_confidence": "high",
   "national_law": {
     "name": "Regime Juridico da Ciberseguranca",
+    "short_name": "RJCS / DL 125/2025",
     "formal_citation": "Decreto-Lei n.o 125/2025, de 4 de dezembro",
     "law_number": "DL 125/2025",
     "publication_date": "2025-12-04",
@@ -15,8 +16,31 @@
     "gazette_url": "https://diariodarepublica.pt/dr/detalhe/decreto-lei/125-2025-962603401",
     "entry_into_force": "2026-04-03",
     "entry_into_force_note": "120 days after publication (December 4, 2025)",
-    "replaces": "Law 46/2018 (NIS1 transposition)"
+    "replaces": "Law 46/2018 (NIS1 transposition)",
+    "authorization_law": "Law 59/2025 of 22 October 2025"
   },
+  "legislative_history": [
+    {
+      "date": "2024-10-17",
+      "event": "EU transposition deadline passed without enactment"
+    },
+    {
+      "date": "2025-05-07",
+      "event": "European Commission sends reasoned opinion to Portugal"
+    },
+    {
+      "date": "2025-10-22",
+      "event": "Authorization Law 59/2025 published, granting government 180 days to enact implementing legislation"
+    },
+    {
+      "date": "2025-12-04",
+      "event": "Decreto-Lei 125/2025 published in Diario da Republica"
+    },
+    {
+      "date": "2026-04-03",
+      "event": "Entry into force (120 days after publication)"
+    }
+  ],
   "competent_authority": {
     "name": "Centro Nacional de Ciberseguranca",
     "acronym": "CNCS",
@@ -84,24 +108,44 @@
       "maximum": "EUR 10,000,000 or 2% of annual global turnover, whichever is higher"
     },
     "important_entities": {
-      "maximum": "EUR 10,000,000 or 2% of annual global turnover, whichever is higher"
+      "maximum": "EUR 7,000,000 or 1.4% of annual global turnover, whichever is higher"
     },
     "additional": "Ancillary sanctions and compulsory financial penalties for non-compliance"
   },
   "compliance_deadlines": {
-    "cybersecurity_officer_appointment": "2026-05-04 (20 working days from entry into force)",
-    "permanent_contact_point": "2026-05-04",
-    "entity_registration": "60 days from CNCS platform availability for existing entities; 30 days from activity commencement for new entities",
-    "risk_management_measures": "24 months from CNCS supplementary regulations issuance",
+    "cybersecurity_officer_appointment": "2026-05-04 (20 working days from entry into force, Art. 31)",
+    "permanent_contact_point": "2026-05-04 (Art. 32)",
+    "entity_registration": "60 days from CNCS platform availability for existing entities; 30 days from activity commencement for new entities (Art. 8, 35)",
+    "risk_management_measures": "24 months from CNCS supplementary regulations issuance (Art. 27)",
+    "supply_chain_measures": "24 months from CNCS supplementary regulations issuance (Art. 28)",
+    "annual_reports": "24 months from CNCS supplementary regulations issuance (Art. 30)",
     "domain_registrars": "30 days from platform availability"
   },
   "management_liability": {
     "applicable": true,
-    "description": "Board members face liability for intentional actions or gross negligence in cybersecurity infringements"
+    "description": "Board members face liability for intentional actions or gross negligence in cybersecurity infringements. Management must approve risk management measures, supervise implementation, and ensure regularity of cybersecurity training (Art. 25). Responsibility cannot be fully delegated except to individual board members.",
+    "training_required": true,
+    "training_article": "Art. 25"
   },
   "supply_chain_requirements": {
     "applicable": true,
-    "description": "Measures must address supplier vulnerabilities, product cybersecurity quality, supplier practices, coordinated risk assessments, and decisions regarding ICT equipment restrictions"
+    "description": "Measures must address supplier vulnerabilities, product cybersecurity quality, supplier practices, coordinated risk assessments, and decisions regarding ICT equipment restrictions (Art. 28)"
+  },
+  "cybersecurity_officer": {
+    "article": "Art. 31",
+    "requirement": "Must be a member of the entity's management bodies or directly subordinate to them",
+    "responsibilities": "Propose cybersecurity measures, inform leadership of risks, manage residual risk, coordinate incident response",
+    "deadline": "2026-05-04"
+  },
+  "key_articles": {
+    "Art. 25": "Management body responsibilities: approve measures, supervise implementation, ensure training",
+    "Art. 27": "Organizational cybersecurity measures",
+    "Art. 28": "Supply chain cybersecurity measures",
+    "Art. 29": "Residual risk management and business continuity",
+    "Art. 30": "Annual cybersecurity reports",
+    "Art. 31": "Cybersecurity officer appointment",
+    "Art. 32": "Permanent 24/7 contact point with CNCS",
+    "Art. 35": "Entity self-identification and registration"
   },
   "additional_resources": {
     "nis2_portal": "https://nis2portugal.pt/",
@@ -116,7 +160,7 @@
       "title": "Diario da Republica - Decreto-Lei 125/2025",
       "url": "https://diariodarepublica.pt/dr/detalhe/decreto-lei/125-2025-962603401",
       "type": "official_gazette",
-      "accessed": "2026-03-12"
+      "accessed": "2026-03-26"
     },
     {
       "title": "Morais Leitao - Legal Alert: New legal framework for cybersecurity",
@@ -128,7 +172,19 @@
       "title": "VdA - NIS 2 Directive transposed in Portugal",
       "url": "https://www.vda.pt/en/publications/newsletters-and-flashes/nis-2-directive-transposed-in-portugal-decree-law-no-1252025-published/28172/",
       "type": "law_firm_analysis",
-      "accessed": "2026-03-12"
+      "accessed": "2026-03-26"
+    },
+    {
+      "title": "Eversheds Sutherland - NIS2 Portugal",
+      "url": "https://ezine.eversheds-sutherland.com/eu-nis2-directive/portugal",
+      "type": "law_firm_analysis",
+      "accessed": "2026-03-26"
+    },
+    {
+      "title": "iCompliance - NIS2 implementation in Portugal: practical roadmap",
+      "url": "https://icompliance.eu/en/nis2-implementation-in-portugal-practical-roadmap-for-compliance-2026/",
+      "type": "industry_analysis",
+      "accessed": "2026-03-26"
     },
     {
       "title": "Wavestone - NIS 2 directive transposition status",
@@ -137,13 +193,17 @@
       "accessed": "2026-03-12"
     }
   ],
-  "last_verified": "2026-03-12",
+  "last_verified": "2026-03-26",
   "notes": [
     "CNCS is the competent authority for all NIS2 obligations",
-    "24-hour incident notification mandatory for significant incidents",
-    "Covers public administration entities beyond base NIS2 scope",
-    "Interplay with national cybersecurity strategy (ENSC) requirements",
-    "Law represents a profound reformulation of the Portuguese cybersecurity legal framework",
-    "Crisis Office composed of entities responsible for internal security, defense, and criminal investigation"
+    "Law enters into force on 2026-04-03 — 8 days away as of last verification",
+    "24-hour incident notification mandatory for significant incidents; unique end-of-impact notification also within 24h",
+    "Covers public administration entities beyond base NIS2 scope (Relevant Public Entities Groups A and B)",
+    "Cybersecurity officer must be board member or directly subordinate — appointment deadline May 4, 2026",
+    "Management training is mandatory under Art. 25 (regularity of cybersecurity training actions)",
+    "Key technical/organizational measures (Art. 27-30) have 24-month delayed enforcement pending CNCS supplementary regulations",
+    "Law represents a profound reformulation of the Portuguese cybersecurity legal framework, replacing Law 46/2018",
+    "Crisis Office composed of entities responsible for internal security, defense, and criminal investigation",
+    "Important entities: lower penalty cap (EUR 7M / 1.4%) vs essential entities (EUR 10M / 2%)"
   ]
 }

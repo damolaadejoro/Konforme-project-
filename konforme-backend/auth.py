@@ -3,7 +3,8 @@ from datetime import datetime, timedelta, timezone
 import bcrypt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError
 from sqlalchemy.orm import Session
 
 from config import settings
@@ -48,7 +49,7 @@ def decode_access_token(token: str) -> dict:
         if account_id is None:
             raise HTTPException(status_code=401, detail="Invalid token")
         return {"account_id": account_id, "user_id": payload.get("user_id")}
-    except JWTError:
+    except PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
@@ -63,7 +64,7 @@ def decode_refresh_token(token: str) -> dict:
         if account_id is None:
             raise HTTPException(status_code=401, detail="Invalid token")
         return {"account_id": account_id, "user_id": payload.get("user_id")}
-    except JWTError:
+    except PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
 

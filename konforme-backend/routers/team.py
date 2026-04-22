@@ -91,6 +91,7 @@ def invite_members(
                 inviter_name=user.name,
                 org_name=account.name,
                 token=invite_token,
+                lang=account.language or "en",
             )
         except Exception:
             pass  # non-critical

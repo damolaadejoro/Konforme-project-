@@ -227,6 +227,20 @@ def submit_assessment_v2(
     db.commit()
     db.refresh(version)
 
+    # Auto-create remediation tasks for non-compliant answers
+    import remediation_service
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        created = remediation_service.auto_create_tasks(
+            db, account_id, version.id, version.responses,
+        )
+        db.commit()
+        logger.info("Auto-created %d remediation tasks for assessment %s", len(created), version.id)
+    except Exception as e:
+        logger.error("Auto-create remediation tasks failed: %s", e, exc_info=True)
+        db.rollback()
+
     resp_items = [
         MaturityResponseItem(
             question_id=r.question_id,
@@ -400,4 +414,28 @@ def auto_save_response(
         ))
 
     db.commit()
+
+    # Auto-manage remediation tasks based on maturity level
+    import remediation_service
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        if req.maturity_level is not None and req.maturity_level >= 2:
+            closed = remediation_service.auto_close_tasks_for_question(
+                db, account_id, question_id, req.maturity_level,
+            )
+            if closed:
+                db.commit()
+                logger.info("Auto-closed %d task(s) for question %s (maturity %d)", closed, question_id, req.maturity_level)
+        elif req.maturity_level is not None and req.maturity_level < 2:
+            task = remediation_service.auto_create_tasks_for_single_question(
+                db, account_id, question_id, req.maturity_level,
+            )
+            if task:
+                db.commit()
+                logger.info("Auto-created task for question %s (maturity %d)", question_id, req.maturity_level)
+    except Exception as e:
+        logger.error("Auto-manage task for question failed: %s", e, exc_info=True)
+        db.rollback()
+
     return {"status": "saved", "versionId": draft.id}

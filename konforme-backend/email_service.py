@@ -6,6 +6,7 @@ import logging
 import httpx
 
 from config import settings
+from email_translations import get_email_text
 
 logger = logging.getLogger(__name__)
 
@@ -102,56 +103,59 @@ _STYLE = """
 """
 
 
-def send_verification_email(email: str, token: str, base_url: str | None = None) -> bool:
+def send_verification_email(email: str, token: str, base_url: str | None = None, lang: str = "en") -> bool:
     """Send email verification link."""
+    t = lambda key, **kw: get_email_text(lang, key, **kw)
     url = base_url or settings.frontend_base_url
     verify_link = f"{url}/verify-email?token={token}"
     html = f"""<!DOCTYPE html><html><head>{_STYLE}</head><body>
     <div class="container">
       <div class="logo">Konforme</div>
-      <h1>Verify your email address</h1>
-      <p>Thanks for signing up! Please confirm your email address by clicking the button below.</p>
-      <p><a class="btn" href="{verify_link}">Verify Email</a></p>
-      <p>Or copy this link: <br><code>{verify_link}</code></p>
-      <p class="footer">If you didn't create a Konforme account, you can safely ignore this email.</p>
+      <h1>{t("verify_heading")}</h1>
+      <p>{t("verify_body")}</p>
+      <p><a class="btn" href="{verify_link}">{t("verify_button")}</a></p>
+      <p>{t("copy_link")} <br><code>{verify_link}</code></p>
+      <p class="footer">{t("verify_footer")}</p>
     </div>
     </body></html>"""
-    return send_email(email, "Verify your Konforme email", html)
+    return send_email(email, t("verify_subject"), html)
 
 
-def send_password_reset_email(email: str, token: str, base_url: str | None = None) -> bool:
+def send_password_reset_email(email: str, token: str, base_url: str | None = None, lang: str = "en") -> bool:
     """Send password reset link."""
+    t = lambda key, **kw: get_email_text(lang, key, **kw)
     url = base_url or settings.frontend_base_url
     reset_link = f"{url}/reset-password?token={token}"
     html = f"""<!DOCTYPE html><html><head>{_STYLE}</head><body>
     <div class="container">
       <div class="logo">Konforme</div>
-      <h1>Reset your password</h1>
-      <p>We received a request to reset your password. Click the button below to choose a new one. This link expires in 1 hour.</p>
-      <p><a class="btn" href="{reset_link}">Reset Password</a></p>
-      <p>Or copy this link: <br><code>{reset_link}</code></p>
-      <p class="footer">If you didn't request a password reset, you can safely ignore this email.</p>
+      <h1>{t("reset_heading")}</h1>
+      <p>{t("reset_body")}</p>
+      <p><a class="btn" href="{reset_link}">{t("reset_button")}</a></p>
+      <p>{t("copy_link")} <br><code>{reset_link}</code></p>
+      <p class="footer">{t("reset_footer")}</p>
     </div>
     </body></html>"""
-    return send_email(email, "Reset your Konforme password", html)
+    return send_email(email, t("reset_subject"), html)
 
 
-def send_invite_email(email: str, inviter_name: str, org_name: str, token: str, base_url: str | None = None) -> bool:
+def send_invite_email(email: str, inviter_name: str, org_name: str, token: str, base_url: str | None = None, lang: str = "en") -> bool:
     """Send team invitation email."""
     esc = html_module.escape
+    t = lambda key, **kw: get_email_text(lang, key, **kw)
     url = base_url or settings.frontend_base_url
     invite_link = f"{url}/accept-invite?token={token}"
     html = f"""<!DOCTYPE html><html><head>{_STYLE}</head><body>
     <div class="container">
       <div class="logo">Konforme</div>
-      <h1>You've been invited to join {esc(org_name)}</h1>
-      <p><strong>{esc(inviter_name)}</strong> has invited you to join <strong>{esc(org_name)}</strong> on Konforme, a NIS2 compliance platform.</p>
-      <p><a class="btn" href="{invite_link}">Accept Invitation</a></p>
-      <p>Or copy this link: <br><code>{invite_link}</code></p>
-      <p class="footer">If you weren't expecting this invitation, you can safely ignore this email.</p>
+      <h1>{t("invite_heading", org_name=esc(org_name))}</h1>
+      <p>{t("invite_body", inviter_name=esc(inviter_name), org_name=esc(org_name))}</p>
+      <p><a class="btn" href="{invite_link}">{t("invite_button")}</a></p>
+      <p>{t("copy_link")} <br><code>{invite_link}</code></p>
+      <p class="footer">{t("invite_footer")}</p>
     </div>
     </body></html>"""
-    return send_email(email, f"Join {esc(org_name)} on Konforme", html)
+    return send_email(email, t("invite_subject", org_name=esc(org_name)), html)
 
 
 def send_campaign_task_email(
@@ -160,21 +164,65 @@ def send_campaign_task_email(
     task_description: str,
     completion_url: str,
     deadline: str | None = None,
+    lang: str = "en",
 ) -> bool:
     """Send campaign task notification to an employee."""
     esc = html_module.escape
-    deadline_line = f"<p><strong>Deadline:</strong> {esc(deadline)}</p>" if deadline else ""
+    t = lambda key, **kw: get_email_text(lang, key, **kw)
+    deadline_line = f"<p><strong>{t('task_deadline')}</strong> {esc(deadline)}</p>" if deadline else ""
     html = f"""<!DOCTYPE html><html><head>{_STYLE}</head><body>
     <div class="container">
       <div class="logo">Konforme</div>
-      <h1>You have a new compliance task</h1>
-      <p>Hi {esc(employee_name)},</p>
-      <p>You've been assigned a compliance task:</p>
+      <h1>{t("task_heading")}</h1>
+      <p>{t("task_greeting", employee_name=esc(employee_name))}</p>
+      <p>{t("task_body")}</p>
       <p><strong>{esc(task_description)}</strong></p>
       {deadline_line}
-      <p><a class="btn" href="{esc(completion_url)}">Complete Task</a></p>
-      <p>Or copy this link: <br><code>{esc(completion_url)}</code></p>
-      <p class="footer">This is an automated message from Konforme NIS2 compliance platform.</p>
+      <p><a class="btn" href="{esc(completion_url)}">{t("task_button")}</a></p>
+      <p>{t("copy_link")} <br><code>{esc(completion_url)}</code></p>
+      <p class="footer">{t("task_footer")}</p>
     </div>
     </body></html>"""
-    return send_email(email, f"Compliance task: {esc(task_description)}", html)
+    return send_email(email, t("task_subject", task_description=esc(task_description)), html)
+
+
+def send_remediation_reminder(
+    email: str,
+    task_title: str,
+    due_date: str,
+    task_url: str,
+    lang: str = "en",
+) -> bool:
+    """Send overdue remediation task reminder."""
+    esc = html_module.escape
+    t = lambda key, **kw: get_email_text(lang, key, **kw)
+    html = f"""<!DOCTYPE html><html><head>{_STYLE}</head><body>
+    <div class="container">
+      <div class="logo">Konforme</div>
+      <h1>{t("reminder_heading")}</h1>
+      <p>{t("reminder_body", task_title=esc(task_title), due_date=esc(due_date))}</p>
+      <p><a class="btn" href="{esc(task_url)}">{t("reminder_button")}</a></p>
+      <p class="footer">{t("reminder_footer")}</p>
+    </div>
+    </body></html>"""
+    return send_email(email, t("reminder_subject", task_title=esc(task_title)), html)
+
+
+def send_escalation_notification(
+    email: str,
+    task_title: str,
+    reschedule_count: int,
+    lang: str = "en",
+) -> bool:
+    """Send chronic slip escalation notification."""
+    esc = html_module.escape
+    t = lambda key, **kw: get_email_text(lang, key, **kw)
+    html = f"""<!DOCTYPE html><html><head>{_STYLE}</head><body>
+    <div class="container">
+      <div class="logo">Konforme</div>
+      <h1>{t("escalation_heading")}</h1>
+      <p>{t("escalation_body", task_title=esc(task_title), reschedule_count=str(reschedule_count))}</p>
+      <p class="footer">{t("escalation_footer")}</p>
+    </div>
+    </body></html>"""
+    return send_email(email, t("escalation_subject", task_title=esc(task_title)), html)

@@ -34,7 +34,7 @@ def _validate_aws_creds(access_key: str, secret_key: str, session_token: str | N
     except ClientError as e:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid AWS credentials: {e.response['Error']['Message']}",
+            detail="Invalid AWS credentials. Please verify your access key, secret key, and region.",
         )
 
 
@@ -141,8 +141,8 @@ def remove_aws_account(
 
     aws_acc.is_active = False
     # Clear encrypted credential fields on removal
-    aws_acc.aws_access_key_id = ""
-    aws_acc.aws_secret_access_key = ""
+    aws_acc.aws_access_key_id = None
+    aws_acc.aws_secret_access_key = None
     aws_acc.aws_session_token = None
     db.commit()
 

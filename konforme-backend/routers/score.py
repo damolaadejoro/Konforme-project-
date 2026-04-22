@@ -14,7 +14,7 @@ from assessment_questions import (
 )
 from auth import enforce_account_access, get_current_account
 from database import get_db
-from models import Account, AccountControl, AssessmentVersion, Country, CountryAssessmentQuestion, CountryControl, Scan, ScanResult
+from models import Account, AccountControl, AssessmentVersion, BaseControl, Country, CountryAssessmentQuestion, CountryControl, Scan, ScanResult
 from scanner.nis2_mapping import NIS2_MAPPING
 from schemas import (
     ArticleBreakdown,
@@ -34,36 +34,11 @@ PILLAR_TECH_W = 0.40
 PILLAR_ASSESS_W = 0.35
 PILLAR_CONTROLS_W = 0.25
 
-CONTROL_SEVERITY_MAP: dict[str, str] = {
-    "ctrl-001": "critical",
-    "ctrl-002": "critical",
-    "ctrl-003": "high",
-    "ctrl-004": "high",
-    "ctrl-005": "critical",
-    "ctrl-006": "high",
-    "ctrl-007": "critical",
-    "ctrl-008": "high",
-    "ctrl-009": "critical",
-    "ctrl-010": "critical",
-    "ctrl-011": "critical",
-    "ctrl-012": "critical",
-    "ctrl-013": "high",
-    "ctrl-014": "high",
-    "ctrl-015": "high",
-    "ctrl-016": "high",
-    "ctrl-017": "critical",
-    "ctrl-018": "high",
-    "ctrl-019": "high",
-    "ctrl-020": "high",
-    "ctrl-021": "medium",
-    "ctrl-022": "high",
-    "ctrl-023": "critical",
-    "ctrl-024": "high",
-    "ctrl-025": "high",
-    "ctrl-026": "critical",
-    "ctrl-027": "high",
-    "ctrl-028": "high",
-}
+def _get_severity_map(db: Session) -> dict[str, str]:
+    """Load control_id → severity mapping from base_controls table."""
+    rows = db.query(BaseControl.control_id, BaseControl.severity).all()
+    return {r.control_id: r.severity for r in rows}
+
 
 CTRL_STATUS_WEIGHTS: dict[str, float] = {
     "Not Started": 0,
@@ -91,17 +66,17 @@ def _get_account_weights(account: Account) -> tuple[float, float, float]:
     return PILLAR_TECH_W, PILLAR_ASSESS_W, PILLAR_CONTROLS_W
 
 
-def _compute_controls_score(db: Session, account_id: str, account: Account) -> float | None:
+def _compute_controls_score(db: Session, account_id: str, account: Account, severity_map: dict[str, str]) -> float | None:
     """Compute a weighted controls implementation score (0-100) or None if no controls.
 
-    Considers both the base 28 controls and any country-specific additional controls
+    Considers both the base 43 controls and any country-specific additional controls
     derived from the account's selected country.
     """
     rows = db.query(AccountControl).filter(AccountControl.account_id == account_id).all()
     saved_statuses: dict[str, str] = {r.control_id: r.status for r in rows}
 
-    # Start with the base 28 controls — always present
-    all_control_ids = list(CONTROL_SEVERITY_MAP.keys())
+    # Start with the base controls from the database
+    all_control_ids = list(severity_map.keys())
 
     # Add country-specific additional controls if the account has a country
     if account.country_id:
@@ -127,7 +102,7 @@ def _compute_controls_score(db: Session, account_id: str, account: Account) -> f
     for ctrl_id in all_control_ids:
         # Country-specific controls (not in the base map) default to "high"
         # to match frontend behaviour in useControls.ts
-        severity = CONTROL_SEVERITY_MAP.get(ctrl_id, "high")
+        severity = severity_map.get(ctrl_id, "high")
         sev_w = CTRL_SEVERITY_WEIGHTS.get(severity, 1)
         status = saved_statuses.get(ctrl_id, "Not Started")
         status_w = CTRL_STATUS_WEIGHTS.get(status, 0)
@@ -387,11 +362,17 @@ def _build_score_response(
         elif h is not None:
             data["combinedScore"] = h
 
+    # Continuous compliance rate (informational, does NOT affect 3-pillar score)
+    import people_tasks_service
+    isms = people_tasks_service.get_isms_coverage(db, account.id)
+    cc_rate = isms["overallHealthScore"] if isms["totalActive"] > 0 else None
+
     return CombinedScoreResponse(
         overallScore=overall,
         technicalScore=tech_score,
         humanFactorScore=human_score,
         controlsScore=controls_score,
+        continuousComplianceRate=cc_rate,
         lastTechnicalScan=last_scan_time,
         lastHumanAssessment=assessment.submitted_at.isoformat() if assessment else None,
         technicalWeight=w_tech,
@@ -415,7 +396,8 @@ def get_combined_score(
 
     country_weights = _get_country_question_weights(account, db)
     assessment = _get_latest_assessment(db, account_id)
-    controls_score = _compute_controls_score(db, account_id, account)
+    severity_map = _get_severity_map(db)
+    controls_score = _compute_controls_score(db, account_id, account, severity_map)
 
     if aws_account_id or credential_id:
         # Single provider/account filter — return score for just that one
@@ -444,7 +426,8 @@ def get_report(
         # For reports, use the latest single scan (aggregation is in score endpoint)
         scan = _get_latest_scan(db, account_id)
     assessment = _get_latest_assessment(db, account_id)
-    controls_score = _compute_controls_score(db, account_id, account)
+    severity_map = _get_severity_map(db)
+    controls_score = _compute_controls_score(db, account_id, account, severity_map)
 
     tech_score = scan.overall_score if scan else None
     human_score = assessment.overall_score if assessment else None

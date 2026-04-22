@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     max_upload_size_mb: int = 10
     signup_webhook_url: str = ""
 
+    # S3 evidence storage (empty bucket = filesystem fallback)
+    s3_evidence_bucket: str = ""
+    s3_evidence_prefix: str = "evidence/"
+    s3_evidence_region: str = "eu-west-1"
+    s3_evidence_access_key_id: str = ""
+    s3_evidence_secret_access_key: str = ""
+    s3_signed_url_expiry: int = 3600
+
     # Email provider: "resend" or "ses"
     email_provider: str = "resend"
     resend_api_key: str = ""

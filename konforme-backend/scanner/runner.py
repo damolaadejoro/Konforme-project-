@@ -26,13 +26,8 @@ def create_session(
     )
 
 
-def run_all_checks(
-    access_key_id: str,
-    secret_access_key: str,
-    session_token: str | None,
-    region: str = "eu-west-1",
-) -> list[CheckResult]:
-    session = create_session(access_key_id, secret_access_key, session_token, region)
+def run_all_checks_with_session(session: boto3.Session) -> list[CheckResult]:
+    """Run all checks using a pre-built boto3 session."""
     checks = discover_checks()
     all_results: list[CheckResult] = []
 
@@ -64,3 +59,13 @@ def run_all_checks(
                 )
 
     return all_results
+
+
+def run_all_checks(
+    access_key_id: str,
+    secret_access_key: str,
+    session_token: str | None,
+    region: str = "eu-west-1",
+) -> list[CheckResult]:
+    session = create_session(access_key_id, secret_access_key, session_token, region)
+    return run_all_checks_with_session(session)

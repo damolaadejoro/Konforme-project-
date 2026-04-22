@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from config import settings
 from database import Base, engine, run_migrations
 from rate_limit import limiter
-from routers import accounts, assessment, cloud_credentials, controls, countries, evidence, remediation, scans, score
+from routers import accounts, assessment, audit_log, business_processes, cloud_credentials, controls, countries, evidence, mappings, people_tasks, remediation, scans, score
 from routers import settings as settings_router
 from routers import team
 from routers.auth_router import router as auth_router
@@ -25,9 +25,10 @@ CSRF_EXEMPT_PATHS = {
     "/api/v1/team/accept-invite",
 }
 
-# Dynamic CSRF exemption for paths with tokens
+# Dynamic CSRF exemption for paths with tokens or OAuth callbacks
 CSRF_EXEMPT_PREFIXES = (
     "/api/v1/campaigns/tasks/complete/",
+    "/api/v1/cloud-credentials/azure/callback",
 )
 
 CSRF_METHODS = {"POST", "PATCH", "DELETE", "PUT"}
@@ -77,10 +78,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+_is_production = settings.environment == "production"
+
 app = FastAPI(
     title="Konforme API",
     description="NIS2 compliance scanning and assessment backend",
     version="1.0.0",
+    docs_url=None if _is_production else "/docs",
+    redoc_url=None if _is_production else "/redoc",
+    openapi_url=None if _is_production else "/openapi.json",
 )
 
 # CORS
@@ -115,11 +121,24 @@ app.include_router(evidence.router, prefix="/api/v1", tags=["Evidence"])
 app.include_router(controls.router, prefix="/api/v1", tags=["Controls"])
 app.include_router(settings_router.router, prefix="/api/v1", tags=["Settings"])
 app.include_router(team.router, prefix="/api/v1", tags=["Team"])
+app.include_router(business_processes.router, prefix="/api/v1", tags=["Business Processes"])
+app.include_router(audit_log.router, prefix="/api/v1", tags=["Audit Log"])
+app.include_router(mappings.router, prefix="/api/v1", tags=["Mappings"])
+app.include_router(people_tasks.router, prefix="/api/v1", tags=["People Tasks"])
 
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "service": "konforme-api"}
+    from sqlalchemy import text
+    from database import SessionLocal
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+        db_status = "connected"
+    except Exception:
+        db_status = "unavailable"
+    status = "ok" if db_status == "connected" else "degraded"
+    return {"status": status, "service": "konforme-api", "database": db_status}
 
 
 WEAK_SECRET_KEYS = {"change-me", "change-me-to-a-random-string", "secret", ""}
@@ -147,3 +166,21 @@ def on_startup():
 
     run_migrations(engine)
     Base.metadata.create_all(bind=engine)
+
+    # Seed base control definitions (idempotent)
+    from database import SessionLocal
+    from scripts.seed_base_controls import seed_base_controls
+    from scripts.seed_question_control_mappings import seed_question_control_mappings
+    with SessionLocal() as db:
+        seed_base_controls(db)
+        seed_question_control_mappings(db)
+
+    # Start background scheduler (overdue reminders, chronic slip escalation)
+    from scheduler import start_scheduler
+    start_scheduler()
+
+
+@app.on_event("shutdown")
+def on_shutdown():
+    from scheduler import stop_scheduler
+    stop_scheduler()

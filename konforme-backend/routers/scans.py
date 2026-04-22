@@ -164,13 +164,26 @@ def execute_provider_scan(
             db.commit()
             return
 
-        if provider_type == "azure":
+        if provider_type == "azure" and getattr(cred, "azure_connection_type", "client_secret") == "oauth":
+            from scanner.azure_oauth_provider import AzureOAuthProvider
+            provider = AzureOAuthProvider(
+                tenant_id=decrypt_value(cred.azure_tenant_id),
+                subscription_id=decrypt_value(cred.azure_subscription_id),
+            )
+        elif provider_type == "azure":
             from scanner.azure_provider import AzureProvider
             provider = AzureProvider(
                 tenant_id=decrypt_value(cred.azure_tenant_id),
                 client_id=decrypt_value(cred.azure_client_id),
                 client_secret=decrypt_value(cred.azure_client_secret),
                 subscription_id=decrypt_value(cred.azure_subscription_id),
+            )
+        elif provider_type == "aws" and getattr(cred, "aws_connection_type", "keys") == "role":
+            from scanner.aws_provider import AWSRoleProvider
+            provider = AWSRoleProvider(
+                role_arn=cred.aws_role_arn,
+                external_id=decrypt_value(cred.aws_external_id),
+                region=cred.aws_region or "eu-west-1",
             )
         else:
             from scanner.aws_provider import AWSProvider
