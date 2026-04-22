@@ -96,103 +96,9 @@ def _validate_upload(file: UploadFile) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Backward-compatible endpoints (legacy control-scoped)
-# ---------------------------------------------------------------------------
-
-
-@router.post("/evidence/{account_id}/{control_id}", response_model=EvidenceResponse)
-async def upload_evidence_legacy(
-    account_id: str,
-    control_id: str,
-    file: UploadFile = File(...),
-    account: Account = Depends(get_current_account),
-    db: Session = Depends(get_db),
-):
-    """Legacy upload: file attached to a specific control."""
-    enforce_account_access(account, account_id)
-    _validate_upload(file)
-
-    content = await file.read()
-    error = evidence_service.validate_file(file.filename or "unnamed", len(content))
-    if error:
-        raise HTTPException(status_code=400, detail=error)
-
-    safe_name = _sanitize_filename(file.filename or "unnamed")
-    ev, _ = evidence_service.upload(
-        db, account_id, None, account.name, safe_name,
-        content, file.content_type or "application/octet-stream",
-    )
-    # Set legacy control_id
-    ev.control_id = control_id
-
-    # Auto-link to control
-    evidence_service.link(db, ev.id, "control", control_id, "primary")
-
-    db.commit()
-    db.refresh(ev)
-    return _evidence_to_response(ev)
-
-
-@router.get("/evidence/{account_id}/{control_id}", response_model=list[EvidenceResponse])
-def list_evidence_legacy(
-    account_id: str,
-    control_id: str,
-    account: Account = Depends(get_current_account),
-    db: Session = Depends(get_db),
-):
-    """Legacy: list evidence for a control (via evidence_links)."""
-    enforce_account_access(account, account_id)
-
-    items = evidence_service.get_for_entity(db, account_id, "control", control_id)
-    return [_evidence_to_response(item["evidence"]) for item in items]
-
-
-@router.get("/evidence/{account_id}/{control_id}/{evidence_id}/download")
-def download_evidence_legacy(
-    account_id: str,
-    control_id: str,
-    evidence_id: str,
-    account: Account = Depends(get_current_account),
-    db: Session = Depends(get_db),
-):
-    """Legacy download by control_id."""
-    enforce_account_access(account, account_id)
-
-    result = evidence_service.get_download_url(db, evidence_id, account_id)
-    if not result:
-        raise HTTPException(status_code=404, detail="Evidence not found")
-
-    url_or_path, filename, is_signed = result
-    if is_signed:
-        return RedirectResponse(url=url_or_path)
-    return FileResponse(path=url_or_path, filename=filename)
-
-
-@router.delete("/evidence/{account_id}/{control_id}/{evidence_id}")
-def delete_evidence_legacy(
-    account_id: str,
-    control_id: str,
-    evidence_id: str,
-    account: Account = Depends(get_current_account),
-    db: Session = Depends(get_db),
-):
-    """Legacy delete."""
-    enforce_account_access(account, account_id)
-
-    ev = evidence_service.soft_delete(db, evidence_id, account_id)
-    if not ev:
-        raise HTTPException(status_code=404, detail="Evidence not found")
-
-    audit_service.emit(
-        db, account_id, "evidence.deleted",
-        entity_type="evidence", entity_id=evidence_id, entity_label=ev.filename,
-    )
-    db.commit()
-    return {"detail": "Evidence deleted"}
-
-
-# ---------------------------------------------------------------------------
-# V2 Endpoints (org-scoped)
+# V2 Endpoints (org-scoped) — MUST be defined before legacy catch-all routes
+# so that literal path segments (upload, library, tags, link, etc.) are matched
+# before {control_id} or {evidence_id} path parameters.
 # ---------------------------------------------------------------------------
 
 
@@ -294,43 +200,6 @@ def unlink_evidence(
     return {"detail": "Evidence unlinked"}
 
 
-@router.patch("/evidence/{account_id}/{evidence_id}", response_model=EvidenceUploadResponse)
-def update_evidence_metadata(
-    account_id: str,
-    evidence_id: str,
-    req: EvidenceUpdateRequest,
-    account: Account = Depends(get_current_account),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Update evidence description and/or tags."""
-    enforce_account_access(account, account_id)
-
-    ev = db.query(Evidence).filter(
-        Evidence.id == evidence_id, Evidence.account_id == account_id, Evidence.deleted_at.is_(None),
-    ).first()
-    if not ev:
-        raise HTTPException(status_code=404, detail="Evidence not found")
-
-    before = {"description": ev.description, "tags": ev.tags}
-
-    if req.description is not None:
-        ev.description = req.description
-    if req.tags is not None:
-        ev.tags = json.dumps(req.tags)
-
-    audit_service.emit(
-        db, account_id, "evidence.updated",
-        actor_user_id=user.id, actor_email=user.email,
-        entity_type="evidence", entity_id=evidence_id, entity_label=ev.filename,
-        before_state=before,
-        after_state={"description": ev.description, "tags": ev.tags},
-    )
-    db.commit()
-    db.refresh(ev)
-    return _evidence_to_upload_response(ev, False)
-
-
 @router.get("/evidence/{account_id}/library", response_model=EvidenceLibraryResponse)
 def search_evidence_library(
     account_id: str,
@@ -388,30 +257,15 @@ def get_evidence_for_entity(
     return [_evidence_to_upload_response(item["evidence"], False) for item in items]
 
 
-@router.get("/evidence/{account_id}/{evidence_id}/download-url")
-def get_evidence_download_url(
+@router.get("/evidence/{account_id}/tags")
+def get_evidence_tags(
     account_id: str,
-    evidence_id: str,
     account: Account = Depends(get_current_account),
     db: Session = Depends(get_db),
 ):
-    """Get a download URL (signed for S3, direct for filesystem)."""
+    """Get all distinct tags used in the account for autocomplete."""
     enforce_account_access(account, account_id)
-
-    result = evidence_service.get_download_url(db, evidence_id, account_id)
-    if not result:
-        raise HTTPException(status_code=404, detail="Evidence not found")
-
-    url_or_path, filename, is_signed = result
-    if is_signed:
-        audit_service.emit(
-            db, account_id, "evidence.downloaded",
-            entity_type="evidence", entity_id=evidence_id,
-        )
-        db.commit()
-        return {"url": url_or_path, "filename": filename}
-    else:
-        return FileResponse(path=url_or_path, filename=filename)
+    return evidence_service.get_tags(db, account_id)
 
 
 @router.delete("/evidence/{account_id}/file/{evidence_id}")
@@ -438,12 +292,162 @@ def delete_evidence_v2(
     return {"detail": "Evidence deleted"}
 
 
-@router.get("/evidence/{account_id}/tags")
-def get_evidence_tags(
+# ---------------------------------------------------------------------------
+# Backward-compatible endpoints (legacy control-scoped)
+# These use {control_id} path parameters that would catch literal segments
+# like "upload", "library", "tags" if placed before the v2 routes above.
+# ---------------------------------------------------------------------------
+
+
+@router.post("/evidence/{account_id}/{control_id}", response_model=EvidenceResponse)
+async def upload_evidence_legacy(
     account_id: str,
+    control_id: str,
+    file: UploadFile = File(...),
     account: Account = Depends(get_current_account),
     db: Session = Depends(get_db),
 ):
-    """Get all distinct tags used in the account for autocomplete."""
+    """Legacy upload: file attached to a specific control."""
     enforce_account_access(account, account_id)
-    return evidence_service.get_tags(db, account_id)
+    _validate_upload(file)
+
+    content = await file.read()
+    error = evidence_service.validate_file(file.filename or "unnamed", len(content))
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+
+    safe_name = _sanitize_filename(file.filename or "unnamed")
+    ev, _ = evidence_service.upload(
+        db, account_id, None, account.name, safe_name,
+        content, file.content_type or "application/octet-stream",
+    )
+    # Set legacy control_id
+    ev.control_id = control_id
+
+    # Auto-link to control
+    evidence_service.link(db, ev.id, "control", control_id, "primary")
+
+    db.commit()
+    db.refresh(ev)
+    return _evidence_to_response(ev)
+
+
+@router.get("/evidence/{account_id}/{control_id}", response_model=list[EvidenceResponse])
+def list_evidence_legacy(
+    account_id: str,
+    control_id: str,
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    """Legacy: list evidence for a control (via evidence_links)."""
+    enforce_account_access(account, account_id)
+
+    items = evidence_service.get_for_entity(db, account_id, "control", control_id)
+    return [_evidence_to_response(item["evidence"]) for item in items]
+
+
+@router.patch("/evidence/{account_id}/{evidence_id}", response_model=EvidenceUploadResponse)
+def update_evidence_metadata(
+    account_id: str,
+    evidence_id: str,
+    req: EvidenceUpdateRequest,
+    account: Account = Depends(get_current_account),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update evidence description and/or tags."""
+    enforce_account_access(account, account_id)
+
+    ev = db.query(Evidence).filter(
+        Evidence.id == evidence_id, Evidence.account_id == account_id, Evidence.deleted_at.is_(None),
+    ).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+
+    before = {"description": ev.description, "tags": ev.tags}
+
+    if req.description is not None:
+        ev.description = req.description
+    if req.tags is not None:
+        ev.tags = json.dumps(req.tags)
+
+    audit_service.emit(
+        db, account_id, "evidence.updated",
+        actor_user_id=user.id, actor_email=user.email,
+        entity_type="evidence", entity_id=evidence_id, entity_label=ev.filename,
+        before_state=before,
+        after_state={"description": ev.description, "tags": ev.tags},
+    )
+    db.commit()
+    db.refresh(ev)
+    return _evidence_to_upload_response(ev, False)
+
+
+@router.get("/evidence/{account_id}/{control_id}/{evidence_id}/download")
+def download_evidence_legacy(
+    account_id: str,
+    control_id: str,
+    evidence_id: str,
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    """Legacy download by control_id."""
+    enforce_account_access(account, account_id)
+
+    result = evidence_service.get_download_url(db, evidence_id, account_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+
+    url_or_path, filename, is_signed = result
+    if is_signed:
+        return RedirectResponse(url=url_or_path)
+    return FileResponse(path=url_or_path, filename=filename)
+
+
+@router.delete("/evidence/{account_id}/{control_id}/{evidence_id}")
+def delete_evidence_legacy(
+    account_id: str,
+    control_id: str,
+    evidence_id: str,
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    """Legacy delete."""
+    enforce_account_access(account, account_id)
+
+    ev = evidence_service.soft_delete(db, evidence_id, account_id)
+    if not ev:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+
+    audit_service.emit(
+        db, account_id, "evidence.deleted",
+        entity_type="evidence", entity_id=evidence_id, entity_label=ev.filename,
+    )
+    db.commit()
+    return {"detail": "Evidence deleted"}
+
+
+@router.get("/evidence/{account_id}/{evidence_id}/download-url")
+def get_evidence_download_url(
+    account_id: str,
+    evidence_id: str,
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    """Get a download URL (signed for S3, direct for filesystem)."""
+    enforce_account_access(account, account_id)
+
+    result = evidence_service.get_download_url(db, evidence_id, account_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+
+    url_or_path, filename, is_signed = result
+    if is_signed:
+        audit_service.emit(
+            db, account_id, "evidence.downloaded",
+            entity_type="evidence", entity_id=evidence_id,
+        )
+        db.commit()
+        return {"url": url_or_path, "filename": filename}
+    else:
+        return FileResponse(path=url_or_path, filename=filename)
