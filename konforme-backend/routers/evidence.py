@@ -229,6 +229,7 @@ def search_evidence_library(
                 pass
         linked_entities = [
             EvidenceLinkedEntity(
+                linkId=le["link_id"],
                 entityType=le["entity_type"],
                 entityId=le["entity_id"],
                 entityName=le["entity_name"],

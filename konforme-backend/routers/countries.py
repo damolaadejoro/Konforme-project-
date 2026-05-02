@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_account
 from database import get_db
-from models import Account, Country, CountryAssessmentQuestion, CountryControl, CountryDeadline, EntityTier
+from models import Account, AccountControl, BaseControl, Country, CountryAssessmentQuestion, CountryControl, CountryDeadline, EntityTier
 from schemas import (
     CountryAssessmentQuestionResponse,
     CountryControlResponse,
@@ -201,9 +201,64 @@ def set_account_country(
     db.commit()
     db.refresh(account)
 
+    # Auto-instantiate controls for this account (idempotent)
+    _instantiate_controls(db, account, country, req.entity_tier)
+
     return {
         "account_id": account.id,
         "country_code": country.code,
         "country_name": country.name,
         "entity_tier": req.entity_tier,
     }
+
+
+def _instantiate_controls(db: Session, account: Account, country: Country, entity_tier: str | None):
+    """Create AccountControl records from base controls + country-specific controls.
+
+    Idempotent — skips controls that already exist for this account.
+    """
+    existing_ids = {
+        ac.control_id
+        for ac in db.query(AccountControl.control_id)
+        .filter(AccountControl.account_id == account.id)
+        .all()
+    }
+
+    # 1. All 43 base NIS2 controls
+    base_controls = db.query(BaseControl).all()
+    for bc in base_controls:
+        if bc.control_id not in existing_ids:
+            db.add(AccountControl(
+                account_id=account.id,
+                control_id=bc.control_id,
+                status="Not Started",
+                is_country_specific=False,
+            ))
+            existing_ids.add(bc.control_id)
+
+    # 2. Country-specific controls (filtered by entity tier if set)
+    country_controls = (
+        db.query(CountryControl)
+        .filter(CountryControl.country_id == country.id)
+        .all()
+    )
+    for cc in country_controls:
+        if cc.control_id in existing_ids:
+            continue
+        # Filter by tier applicability
+        if entity_tier:
+            try:
+                applies_to = json.loads(cc.applies_to_tiers) if cc.applies_to_tiers else []
+            except (json.JSONDecodeError, TypeError):
+                applies_to = []
+            if applies_to and entity_tier not in applies_to:
+                continue
+        db.add(AccountControl(
+            account_id=account.id,
+            control_id=cc.control_id,
+            status="Not Started",
+            is_country_specific=True,
+        ))
+        existing_ids.add(cc.control_id)
+
+    db.commit()

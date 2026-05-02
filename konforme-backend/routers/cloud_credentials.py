@@ -328,7 +328,9 @@ def _validate_role_arn(role_arn: str, external_id: str) -> str:
                 status_code=400,
                 detail="Could not assume the IAM role. Verify the Role ARN and that the CloudFormation stack deployed successfully.",
             )
-        raise HTTPException(status_code=400, detail=f"AWS error: {e.response['Error']['Message']}")
+        import logging
+        logging.getLogger(__name__).error("AWS STS error: %s", e.response["Error"]["Message"])
+        raise HTTPException(status_code=400, detail="AWS connection failed. Please check your credentials and try again.")
 
 
 # ---------------------------------------------------------------------------

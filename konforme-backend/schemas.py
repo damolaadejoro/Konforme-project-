@@ -982,6 +982,7 @@ class EvidenceUpdateRequest(BaseModel):
 
 
 class EvidenceLinkedEntity(BaseModel):
+    linkId: str
     entityType: str
     entityId: str
     entityName: str
@@ -1176,6 +1177,34 @@ class MyPeopleTaskItem(BaseModel):
     ismsDomain: str | None = None
     currentPeriodKey: str
     currentPeriodStatus: str  # completed | pending | overdue
+
+
+# --- Reports ---
+
+class ReportGenerateRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    period: str  # e.g. "Q2 2026"
+    period_start: str  # ISO date
+    period_end: str  # ISO date
+
+
+class ReportArchiveResponse(BaseModel):
+    id: str
+    documentId: str
+    period: str
+    periodStart: str
+    periodEnd: str
+    aggregateScore: float
+    technicalScore: float
+    humanFactorScore: float
+    grade: str
+    maturityLevel: int
+    fileSizeBytes: int
+    contentHash: str | None = None
+    generatedAt: str
+    generatedByUserId: str | None = None
+    downloadUrl: str
 
 
 class ISMSCoverageResponse(BaseModel):

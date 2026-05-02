@@ -241,7 +241,7 @@ def submit_assessment_v2(
     db.commit()
     db.refresh(version)
 
-    # Auto-create remediation tasks for non-compliant answers
+    # Auto-manage remediation tasks based on assessment results
     import remediation_service
     import logging
     logger = logging.getLogger(__name__)
@@ -253,6 +253,23 @@ def submit_assessment_v2(
         logger.info("Auto-created %d remediation tasks for assessment %s", len(created), version.id)
     except Exception as e:
         logger.error("Auto-create remediation tasks failed: %s", e, exc_info=True)
+        db.rollback()
+
+    # Auto-close remediation tasks for compliant answers (maturity >= 2)
+    try:
+        total_closed = 0
+        for r in req.responses:
+            if r.maturity_level is not None and r.maturity_level >= 2:
+                closed = remediation_service.auto_close_tasks_for_question(
+                    db, account_id, r.question_id, r.maturity_level,
+                    actor_user_id=user.id, actor_email=user.email,
+                )
+                total_closed += closed
+        if total_closed:
+            db.commit()
+            logger.info("Auto-closed %d remediation task(s) for assessment %s", total_closed, version.id)
+    except Exception as e:
+        logger.error("Auto-close remediation tasks failed: %s", e, exc_info=True)
         db.rollback()
 
     resp_items = [

@@ -750,6 +750,40 @@ class PeopleTask(Base):
     )
 
 
+# ---------------------------------------------------------------------------
+# Phase 5: Reports Archive
+# ---------------------------------------------------------------------------
+
+
+class Report(Base):
+    """Snapshot of a generated compliance report."""
+    __tablename__ = "reports"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
+    account_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    document_id: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    period: Mapped[str] = mapped_column(String(20), nullable=False)  # e.g. "Q2 2026"
+    period_start: Mapped[date] = mapped_column(Date, nullable=False)
+    period_end: Mapped[date] = mapped_column(Date, nullable=False)
+    aggregate_score: Mapped[float] = mapped_column(Float, nullable=False)
+    technical_score: Mapped[float] = mapped_column(Float, nullable=False)
+    human_factor_score: Mapped[float] = mapped_column(Float, nullable=False)
+    grade: Mapped[str] = mapped_column(String(2), nullable=False)
+    maturity_level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    file_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
+    generated_by_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=True
+    )
+
+    account: Mapped["Account"] = relationship()
+    generated_by: Mapped["User | None"] = relationship()
+
+
 class PeopleTaskCompletion(Base):
     """One completion record per user per period for a people task."""
     __tablename__ = "people_task_completions"

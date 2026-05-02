@@ -446,6 +446,40 @@ def run_migrations(eng):
                 )
             """))
 
+    # --- Phase 5: Reports archive ---
+
+    if "reports" not in inspector.get_table_names():
+        with eng.begin() as conn:
+            conn.execute(text(f"""
+                CREATE TABLE reports (
+                    id VARCHAR(36) PRIMARY KEY,
+                    account_id VARCHAR(36) NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+                    document_id VARCHAR(50) UNIQUE NOT NULL,
+                    period VARCHAR(20) NOT NULL,
+                    period_start DATE NOT NULL,
+                    period_end DATE NOT NULL,
+                    aggregate_score REAL NOT NULL,
+                    technical_score REAL NOT NULL,
+                    human_factor_score REAL NOT NULL,
+                    grade VARCHAR(2) NOT NULL,
+                    maturity_level INTEGER NOT NULL DEFAULT 1,
+                    file_size_bytes INTEGER NOT NULL DEFAULT 0,
+                    file_path VARCHAR(1000),
+                    content_hash VARCHAR(64),
+                    generated_at {ts_type} DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                    generated_by_user_id VARCHAR(36) REFERENCES users(id)
+                )
+            """))
+
+    # Add columns to reports if created before upgrade
+    if "reports" in inspector.get_table_names():
+        existing_rpt = {c["name"] for c in inspector.get_columns("reports")}
+        with eng.begin() as conn:
+            if "maturity_level" not in existing_rpt:
+                conn.execute(text("ALTER TABLE reports ADD COLUMN maturity_level INTEGER NOT NULL DEFAULT 1"))
+            if "content_hash" not in existing_rpt:
+                conn.execute(text("ALTER TABLE reports ADD COLUMN content_hash VARCHAR(64)"))
+
     # --- Performance indexes (idempotent) ---
     _index_defs = [
         ("ix_scans_account_id", "scans", "account_id"),
@@ -479,6 +513,8 @@ def run_migrations(eng):
         ("ix_people_tasks_isms_domain", "people_tasks", "isms_domain"),
         ("ix_ptc_task_id", "people_task_completions", "people_task_id"),
         ("ix_ptc_user_id", "people_task_completions", "user_id"),
+        ("ix_reports_account_id", "reports", "account_id"),
+        ("ix_reports_generated_at", "reports", "generated_at"),
     ]
     for idx_name, tbl, col in _index_defs:
         if tbl in inspector.get_table_names():

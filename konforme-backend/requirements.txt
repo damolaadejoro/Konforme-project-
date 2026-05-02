@@ -16,6 +16,7 @@ alembic==1.14.1
 httpx==0.28.1
 APScheduler==3.10.4
 pyyaml>=6.0
+reportlab>=4.0
 # Azure SDK
 azure-identity==1.19.0
 azure-mgmt-resource==23.2.0

@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     s3_evidence_secret_access_key: str = ""
     s3_signed_url_expiry: int = 3600
 
+    # S3 reports storage (empty bucket = filesystem fallback)
+    s3_reports_bucket: str = ""
+    s3_reports_prefix: str = "reports/"
+    s3_reports_region: str = "eu-west-1"
+
     # Email provider: "resend" or "ses"
     email_provider: str = "resend"
     resend_api_key: str = ""

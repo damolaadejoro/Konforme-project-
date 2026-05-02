@@ -207,6 +207,7 @@ def search_library(
         for lnk in ev_links:
             name = entity_names.get((lnk.entity_type, lnk.entity_id), lnk.entity_id)
             linked_entities.append({
+                "link_id": lnk.id,
                 "entity_type": lnk.entity_type,
                 "entity_id": lnk.entity_id,
                 "entity_name": name,

@@ -369,7 +369,7 @@ def auto_create_tasks(
     from assessment_questions import QUESTION_MAP
 
     created = []
-    default_due = date.today() + timedelta(days=90)
+    task_index = 0  # counter for staggering within this batch
 
     # Get all question-control mappings
     mappings = db.query(AssessmentQuestionControl).all()
@@ -397,6 +397,9 @@ def auto_create_tasks(
         q_data = QUESTION_MAP.get(q_id)
         q_text = q_data["question"][:400] if q_data else q_id
         severity = q_data.get("severity", "medium") if q_data else "medium"
+        priority = _severity_to_priority(severity)
+        due = _smart_due_date(severity, task_index)
+        task_index += 1
 
         # Get first mapped control (if any)
         q_mappings = mapping_by_q.get(q_id, [])
@@ -408,11 +411,11 @@ def auto_create_tasks(
             title=f"Remediate: {q_text}"[:500],
             description=f"Auto-generated from assessment (maturity level {level}/4).",
             status="open",
-            priority="high" if severity == "critical" else severity,
+            priority=priority,
             severity=severity,
             auto_generated=True,
-            due_date=default_due,
-            original_due_date=default_due,
+            due_date=due,
+            original_due_date=due,
             related_control_id=control_id,
             related_assessment_answer_id=resp.id,
         )
@@ -443,6 +446,23 @@ def auto_create_tasks(
 # ---------------------------------------------------------------------------
 
 
+def _smart_due_date(severity: str, display_order: int) -> date:
+    """Stagger due dates by severity and order within severity band.
+
+    Phase 1 (30-45 days): Critical controls — foundational security gaps
+    Phase 2 (45-75 days): High priority — core compliance requirements
+    Phase 3 (75-120 days): Medium priority — supporting controls
+    Within each phase, tasks are spread 3 days apart by display_order.
+    """
+    base_days = {"critical": 30, "high": 45, "medium": 75}.get(severity, 75)
+    stagger = (display_order % 15) * 3  # spread up to ~45 days within band
+    return date.today() + timedelta(days=base_days + stagger)
+
+
+def _severity_to_priority(severity: str) -> str:
+    return {"critical": "high", "high": "high", "medium": "medium"}.get(severity, "medium")
+
+
 def auto_create_task_for_control(
     db: Session,
     account_id: str,
@@ -463,12 +483,15 @@ def auto_create_task_for_control(
     if existing:
         return None
 
-    # Get control title
+    # Get control metadata for smart scheduling
     base = db.query(BaseControl).filter(
         BaseControl.control_id == control_id
     ).first()
     title = base.title if base else control_id
-    default_due = date.today() + timedelta(days=90)
+    severity = base.severity if base else "medium"
+    display_order = base.display_order if base else 0
+    priority = _severity_to_priority(severity)
+    due = _smart_due_date(severity, display_order)
 
     task = RemediationTask(
         account_id=account_id,
@@ -476,11 +499,11 @@ def auto_create_task_for_control(
         title=f"Implement: {title}"[:500],
         description=f"Auto-generated — control status set to '{control_status}'.",
         status="open",
-        priority="medium",
-        severity="medium",
+        priority=priority,
+        severity=severity,
         auto_generated=True,
-        due_date=default_due,
-        original_due_date=default_due,
+        due_date=due,
+        original_due_date=due,
         related_control_id=control_id,
     )
     db.add(task)
@@ -535,18 +558,19 @@ def auto_create_tasks_for_single_question(
     ).all()
     control_id = q_mappings[0].control_id if q_mappings else None
 
-    default_due = date.today() + timedelta(days=90)
+    priority = _severity_to_priority(severity)
+    due = _smart_due_date(severity, 0)
     task = RemediationTask(
         account_id=account_id,
         question_id=question_id,
         title=f"Remediate: {q_text}"[:500],
         description=f"Auto-generated from assessment (maturity level {maturity_level}/4).",
         status="open",
-        priority="high" if severity == "critical" else severity,
+        priority=priority,
         severity=severity,
         auto_generated=True,
-        due_date=default_due,
-        original_due_date=default_due,
+        due_date=due,
+        original_due_date=due,
         related_control_id=control_id,
     )
     db.add(task)
