@@ -165,8 +165,8 @@ def on_startup():
                 "COOKIE_SECURE must be True in production to prevent cookies being sent over HTTP."
             )
 
-    run_migrations(engine)
     Base.metadata.create_all(bind=engine)
+    run_migrations(engine)
 
     # Seed base control definitions (idempotent)
     from database import SessionLocal
