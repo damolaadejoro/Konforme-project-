@@ -7,6 +7,10 @@ from config import settings
 def _build_engine():
     url = settings.database_url
 
+    # Render (and some other platforms) provide postgres:// but SQLAlchemy requires postgresql://
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+
     if url.startswith("sqlite"):
         return create_engine(
             url,
