@@ -9,8 +9,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy.orm import Session
-
+from database import Session
 from models import AuditLog
 
 GENESIS_HASH = "0" * 64
@@ -71,12 +70,7 @@ def emit(
     now = datetime.now(timezone.utc)
 
     # Get previous hash for this account's chain
-    prev_row = (
-        db.query(AuditLog)
-        .filter(AuditLog.account_id == account_id)
-        .order_by(AuditLog.id.desc())
-        .first()
-    )
+    prev_row = db.last(AuditLog, account_id)
     prev_hash = prev_row.hash if prev_row else GENESIS_HASH
 
     # Derive event_category from the first segment of event_type
@@ -103,10 +97,9 @@ def emit(
         metadata_json=json.dumps(metadata, default=str) if metadata else None,
         occurred_at=now,
         prev_hash=prev_hash,
-        hash="",  # placeholder — computed after flush to get row ID
+        hash="",  # placeholder — computed below from the row ID
     )
     db.add(log)
-    db.flush()  # assigns auto-increment ID
 
     # Compute the tamper-evident hash
     log.hash = _compute_hash(
@@ -122,7 +115,6 @@ def emit(
         change_reason=change_reason,
         prev_hash=prev_hash,
     )
-    db.flush()
 
     return log
 
@@ -132,12 +124,7 @@ def verify_chain(db: Session, account_id: str) -> dict:
 
     Returns {"valid": bool, "total": int, "checked": int, "first_broken_at": int | None}.
     """
-    rows = (
-        db.query(AuditLog)
-        .filter(AuditLog.account_id == account_id)
-        .order_by(AuditLog.id.asc())
-        .all()
-    )
+    rows = sorted(db.list(AuditLog, account_id), key=lambda r: r.id)
 
     if not rows:
         return {"valid": True, "total": 0, "checked": 0, "first_broken_at": None}

@@ -4,14 +4,13 @@ import logging
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
-from sqlalchemy.orm import Session
 
 from auth import enforce_account_access, get_current_account, get_current_user, require_role
-from database import get_db
+from database import Session, get_db
 from models import Account, PeopleTask, PeopleTaskCompletion, User, UserRole
 import audit_service
 import people_tasks_service
+from store import order_by
 from schemas import (
     BaselineInstantiateRequest,
     CompletePeopleTaskRequest,
@@ -31,11 +30,7 @@ router = APIRouter()
 
 def _task_to_response(db: Session, task: PeopleTask, user_id: str | None = None) -> PeopleTaskResponse:
     """Convert a PeopleTask ORM object to PeopleTaskResponse."""
-    completion_count = (
-        db.query(func.count(PeopleTaskCompletion.id))
-        .filter(PeopleTaskCompletion.people_task_id == task.id)
-        .scalar()
-    ) or 0
+    completion_count = len(db.list(PeopleTaskCompletion, task.id))
 
     period_status = people_tasks_service.get_task_period_status(db, task, user_id)
 
@@ -100,15 +95,7 @@ def get_my_people_tasks(
     db: Session = Depends(get_db),
 ):
     """Get current user's assigned tasks (or all active tasks for the org)."""
-    tasks = (
-        db.query(PeopleTask)
-        .filter(
-            PeopleTask.account_id == user.account_id,
-            PeopleTask.active.is_(True),
-        )
-        .order_by(PeopleTask.next_due_date.asc().nullslast())
-        .all()
-    )
+    tasks = order_by([t for t in db.list(PeopleTask, user.account_id) if t.active], "next_due_date")
 
     result = []
     for t in tasks:
@@ -155,19 +142,20 @@ def list_people_tasks(
     db: Session = Depends(get_db),
 ):
     enforce_account_access(account, account_id)
-    q = db.query(PeopleTask).filter(PeopleTask.account_id == account_id)
+    tasks = db.list(PeopleTask, account_id)
     if active_only:
-        q = q.filter(PeopleTask.active.is_(True))
+        tasks = [t for t in tasks if t.active]
     if pdca_phase:
-        q = q.filter(PeopleTask.pdca_phase == pdca_phase)
+        tasks = [t for t in tasks if t.pdca_phase == pdca_phase]
     if subsection:
-        q = q.filter(PeopleTask.article_21_subsection == subsection)
+        tasks = [t for t in tasks if t.article_21_subsection == subsection]
     if task_type:
-        q = q.filter(PeopleTask.task_type == task_type)
+        tasks = [t for t in tasks if t.task_type == task_type]
     if isms_domain:
-        q = q.filter(PeopleTask.isms_domain == isms_domain)
+        tasks = [t for t in tasks if t.isms_domain == isms_domain]
 
-    tasks = q.order_by(PeopleTask.next_due_date.asc().nullslast(), PeopleTask.created_at.desc()).all()
+    # ORDER BY next_due_date ASC NULLS LAST, created_at DESC (stable sorts, last key first)
+    tasks = order_by(order_by(tasks, "created_at", desc=True), "next_due_date")
     return [_task_to_response(db, t, user.id) for t in tasks]
 
 
@@ -212,7 +200,6 @@ def create_people_task(
     )
 
     db.commit()
-    db.refresh(task)
     return _task_to_response(db, task, user.id)
 
 
@@ -228,7 +215,7 @@ def update_people_task(
     db: Session = Depends(get_db),
 ):
     enforce_account_access(account, account_id)
-    task = db.query(PeopleTask).filter(PeopleTask.id == task_id, PeopleTask.account_id == account_id).first()
+    task = db.get_by_key(PeopleTask, account_id, id=task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
@@ -261,7 +248,6 @@ def update_people_task(
     )
 
     db.commit()
-    db.refresh(task)
     return _task_to_response(db, task, user.id)
 
 
@@ -277,7 +263,7 @@ def reschedule_people_task(
     db: Session = Depends(get_db),
 ):
     enforce_account_access(account, account_id)
-    task = db.query(PeopleTask).filter(PeopleTask.id == task_id, PeopleTask.account_id == account_id).first()
+    task = db.get_by_key(PeopleTask, account_id, id=task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
@@ -298,7 +284,6 @@ def reschedule_people_task(
     )
 
     db.commit()
-    db.refresh(task)
     return _task_to_response(db, task, user.id)
 
 
@@ -314,7 +299,7 @@ def complete_people_task(
     db: Session = Depends(get_db),
 ):
     enforce_account_access(account, account_id)
-    task = db.query(PeopleTask).filter(PeopleTask.id == task_id, PeopleTask.account_id == account_id).first()
+    task = db.get_by_key(PeopleTask, account_id, id=task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     if not task.active:
@@ -330,7 +315,6 @@ def complete_people_task(
         raise HTTPException(status_code=409, detail=str(e))
 
     db.commit()
-    db.refresh(completion)
 
     return PeopleTaskCompletionResponse(
         id=completion.id,
@@ -356,20 +340,15 @@ def list_task_completions(
     db: Session = Depends(get_db),
 ):
     enforce_account_access(account, account_id)
-    task = db.query(PeopleTask).filter(PeopleTask.id == task_id, PeopleTask.account_id == account_id).first()
+    task = db.get_by_key(PeopleTask, account_id, id=task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    completions = (
-        db.query(PeopleTaskCompletion)
-        .filter(PeopleTaskCompletion.people_task_id == task_id)
-        .order_by(PeopleTaskCompletion.created_at.desc())
-        .all()
-    )
+    completions = order_by(db.list(PeopleTaskCompletion, task_id), "created_at", desc=True)
 
     # Resolve user names
     user_ids = {c.user_id for c in completions}
-    users_map = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
+    users_map = {u.id: u for u in db.list(User, account_id) if u.id in user_ids} if user_ids else {}
 
     return [
         PeopleTaskCompletionResponse(

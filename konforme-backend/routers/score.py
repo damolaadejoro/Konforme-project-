@@ -2,7 +2,6 @@ import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
 
 from assessment_questions import (
     ARTICLES,
@@ -13,9 +12,10 @@ from assessment_questions import (
     calculate_assessment_score,
 )
 from auth import enforce_account_access, get_current_account
-from database import get_db
+from database import Session, get_db
 from models import Account, AccountControl, AssessmentVersion, BaseControl, Country, CountryAssessmentQuestion, CountryControl, Scan, ScanResult
 from scanner.nis2_mapping import NIS2_MAPPING
+from store import newest
 from schemas import (
     ArticleBreakdown,
     CombinedScoreResponse,
@@ -36,7 +36,7 @@ PILLAR_CONTROLS_W = 0.25
 
 def _get_severity_map(db: Session) -> dict[str, str]:
     """Load control_id → severity mapping from base_controls table."""
-    rows = db.query(BaseControl.control_id, BaseControl.severity).all()
+    rows = db.all(BaseControl)
     return {r.control_id: r.severity for r in rows}
 
 
@@ -72,7 +72,7 @@ def _compute_controls_score(db: Session, account_id: str, account: Account, seve
     Considers both the base 43 controls and any country-specific additional controls
     derived from the account's selected country.
     """
-    rows = db.query(AccountControl).filter(AccountControl.account_id == account_id).all()
+    rows = db.list(AccountControl, account_id)
     saved_statuses: dict[str, str] = {r.control_id: r.status for r in rows}
 
     # Start with the base controls from the database
@@ -80,16 +80,11 @@ def _compute_controls_score(db: Session, account_id: str, account: Account, seve
 
     # Add country-specific additional controls if the account has a country
     if account.country_id:
-        country = db.query(Country).filter(Country.id == account.country_id).first()
+        country = db.get(Country, account.country_id)
         if country:
-            additional_qs = (
-                db.query(CountryAssessmentQuestion)
-                .filter(
-                    CountryAssessmentQuestion.country_id == account.country_id,
-                    CountryAssessmentQuestion.is_additional.is_(True),
-                )
-                .all()
-            )
+            additional_qs = [
+                q for q in db.list(CountryAssessmentQuestion, account.country_id) if q.is_additional
+            ]
             for i, _q in enumerate(additional_qs, 1):
                 ctrl_id = f"country-ctrl-{country.code.lower()}-{i}"
                 all_control_ids.append(ctrl_id)
@@ -132,14 +127,9 @@ def _get_country_question_weights(account: Account, db: Session) -> dict[str, fl
     """Query CountryAssessmentQuestion for the account's country, return {base_question_id: weight} or None."""
     if not account.country_id:
         return None
-    rows = (
-        db.query(CountryAssessmentQuestion)
-        .filter(
-            CountryAssessmentQuestion.country_id == account.country_id,
-            CountryAssessmentQuestion.base_question_id.isnot(None),
-        )
-        .all()
-    )
+    rows = [
+        q for q in db.list(CountryAssessmentQuestion, account.country_id) if q.base_question_id is not None
+    ]
     if not rows:
         return None
     return {r.base_question_id: r.weight for r in rows}
@@ -151,72 +141,34 @@ def _get_latest_scan(
     aws_account_id: str | None = None,
     credential_id: str | None = None,
 ) -> Scan | None:
-    q = db.query(Scan).filter(Scan.account_id == account_id, Scan.status == "complete")
+    scans = [s for s in db.list(Scan, account_id) if s.status == "complete"]
     if credential_id:
-        q = q.filter(Scan.cloud_credential_id == credential_id)
+        scans = [s for s in scans if s.cloud_credential_id == credential_id]
     elif aws_account_id:
-        q = q.filter(Scan.aws_account_id == aws_account_id)
-    return q.order_by(Scan.completed_at.desc()).first()
+        scans = [s for s in scans if s.aws_account_id == aws_account_id]
+    return newest(scans, "completed_at")
 
 
 def _get_latest_scans_per_provider(db: Session, account_id: str) -> list[Scan]:
     """Get the latest completed scan for each AWS account and cloud credential."""
-    from sqlalchemy import func, and_
+    complete = [s for s in db.list(Scan, account_id) if s.status == "complete" and s.completed_at]
 
-    scans: list[Scan] = []
+    def latest_per(group_key, candidates):
+        latest: dict[str, datetime] = {}
+        for s in candidates:
+            k = group_key(s)
+            if k not in latest or s.completed_at > latest[k]:
+                latest[k] = s.completed_at
+        # Like the old MAX()+JOIN: every scan matching its group's latest time
+        return [s for s in candidates if s.completed_at == latest[group_key(s)]]
 
     # Latest scan per AWS account
-    aws_subq = (
-        db.query(
-            Scan.aws_account_id,
-            func.max(Scan.completed_at).label("max_completed"),
-        )
-        .filter(
-            Scan.account_id == account_id,
-            Scan.status == "complete",
-            Scan.aws_account_id.isnot(None),
-        )
-        .group_by(Scan.aws_account_id)
-        .subquery()
-    )
-    aws_scans = (
-        db.query(Scan)
-        .join(
-            aws_subq,
-            and_(
-                Scan.aws_account_id == aws_subq.c.aws_account_id,
-                Scan.completed_at == aws_subq.c.max_completed,
-            ),
-        )
-        .all()
-    )
-    scans.extend(aws_scans)
+    scans = latest_per(lambda s: s.aws_account_id, [s for s in complete if s.aws_account_id is not None])
 
-    # Latest scan per cloud credential (Azure etc.)
-    cred_subq = (
-        db.query(
-            Scan.cloud_credential_id,
-            func.max(Scan.completed_at).label("max_completed"),
-        )
-        .filter(
-            Scan.account_id == account_id,
-            Scan.status == "complete",
-            Scan.cloud_credential_id.isnot(None),
-            Scan.aws_account_id.is_(None),  # Exclude AWS scans that also have credential_id
-        )
-        .group_by(Scan.cloud_credential_id)
-        .subquery()
-    )
-    cred_scans = (
-        db.query(Scan)
-        .join(
-            cred_subq,
-            and_(
-                Scan.cloud_credential_id == cred_subq.c.cloud_credential_id,
-                Scan.completed_at == cred_subq.c.max_completed,
-            ),
-        )
-        .all()
+    # Latest scan per cloud credential (Azure etc.); excludes AWS scans that also have credential_id
+    cred_scans = latest_per(
+        lambda s: s.cloud_credential_id,
+        [s for s in complete if s.cloud_credential_id is not None and s.aws_account_id is None],
     )
     # Avoid duplicates
     seen_ids = {s.id for s in scans}
@@ -228,14 +180,8 @@ def _get_latest_scans_per_provider(db: Session, account_id: str) -> list[Scan]:
 
 
 def _get_latest_assessment(db: Session, account_id: str) -> AssessmentVersion | None:
-    return (
-        db.query(AssessmentVersion)
-        .filter(
-            AssessmentVersion.account_id == account_id,
-            AssessmentVersion.status == "submitted",
-        )
-        .order_by(AssessmentVersion.submitted_at.desc())
-        .first()
+    return newest(
+        [v for v in db.list(AssessmentVersion, account_id) if v.status == "submitted"], "submitted_at"
     )
 
 
@@ -295,7 +241,7 @@ def _build_score_response(
             if scan.overall_score is not None and scan.total_checks > 0:
                 total_weighted += scan.overall_score * scan.total_checks
                 total_checks += scan.total_checks
-            results = db.query(ScanResult).filter(ScanResult.scan_id == scan.id).all()
+            results = db.list(ScanResult, scan.id)
             all_scan_results.extend(results)
             if scan.completed_at and (latest_completed is None or scan.completed_at > latest_completed):
                 latest_completed = scan.completed_at
@@ -450,7 +396,7 @@ def get_report(
     total_checks = 0
 
     if scan:
-        results = db.query(ScanResult).filter(ScanResult.scan_id == scan.id).all()
+        results = db.list(ScanResult, scan.id)
         total_checks = len(results)
         for r in results:
             if r.status == "pass":

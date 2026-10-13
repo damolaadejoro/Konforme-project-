@@ -5,15 +5,14 @@ from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy import desc
-from sqlalchemy.orm import Session
 
 from auth import enforce_account_access, get_current_account, get_current_user
-from database import get_db
+from database import Session, get_db
 from models import Account, Report, User
 from report_generator import generate_compliance_pdf
 from report_storage import store_pdf, load_pdf, delete_pdf
 from schemas import ReportArchiveResponse, ReportGenerateRequest
+from store import order_by
 
 router = APIRouter()
 
@@ -46,12 +45,7 @@ def list_reports(
 ):
     enforce_account_access(account, account_id)
 
-    reports = (
-        db.query(Report)
-        .filter(Report.account_id == account_id)
-        .order_by(desc(Report.generated_at))
-        .all()
-    )
+    reports = order_by(db.list(Report, account_id), "generated_at", desc=True)
     return [_report_to_response(r) for r in reports]
 
 
@@ -73,7 +67,7 @@ def generate_report(
         raise HTTPException(status_code=422, detail="Invalid date format. Use YYYY-MM-DD.")
 
     # Build document ID: KNF-{YYYY}-{QN}-{seq}
-    seq = db.query(Report).filter(Report.account_id == account_id).count() + 1
+    seq = len(db.list(Report, account_id)) + 1
     now = datetime.now(timezone.utc)
     document_id = f"KNF-{now.year}-{request.period.replace(' ', '-').upper()}-{seq:03d}"
 
@@ -139,7 +133,6 @@ def generate_report(
     )
     db.add(report)
     db.commit()
-    db.refresh(report)
 
     # Store PDF and update metadata
     relative_path, size, content_hash = store_pdf(account_id, report.id, pdf_bytes)
@@ -147,7 +140,6 @@ def generate_report(
     report.file_size_bytes = size
     report.content_hash = content_hash
     db.commit()
-    db.refresh(report)
 
     return _report_to_response(report)
 
@@ -161,10 +153,7 @@ def download_report(
 ):
     enforce_account_access(account, account_id)
 
-    report = db.query(Report).filter(
-        Report.id == report_id,
-        Report.account_id == account_id,
-    ).first()
+    report = db.get_by_key(Report, account_id, id=report_id)
     if not report or not report.file_path:
         raise HTTPException(status_code=404, detail="Report not found")
 
@@ -192,10 +181,7 @@ def delete_report(
 ):
     enforce_account_access(account, account_id)
 
-    report = db.query(Report).filter(
-        Report.id == report_id,
-        Report.account_id == account_id,
-    ).first()
+    report = db.get_by_key(Report, account_id, id=report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 

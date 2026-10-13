@@ -5,10 +5,8 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 from jwt.exceptions import PyJWTError
-from sqlalchemy.orm import Session
-
 from config import settings
-from database import get_db
+from database import Session, get_db
 from models import Account, User, UserRole
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -89,24 +87,26 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Not authenticated")
     token_data = decode_access_token(token)
 
+    account_id = token_data["account_id"]
+
     # Try user_id first (new tokens)
     user_id = token_data.get("user_id")
     if user_id:
-        user = db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
-        if user:
+        user = db.get_by_key(User, account_id, id=user_id)
+        if user and user.is_active:
             return user
 
     # Fallback: find the owner user for this account (backward compat with old tokens)
-    account_id = token_data["account_id"]
-    user = (
-        db.query(User)
-        .filter(User.account_id == account_id, User.is_active.is_(True))
-        .order_by(User.created_at)
-        .first()
-    )
+    user = first_active_user(db, account_id)
     if not user:
         raise HTTPException(status_code=401, detail="User not found or inactive")
     return user
+
+
+def first_active_user(db: Session, account_id: str) -> User | None:
+    """The earliest-created active user of an account (the original owner)."""
+    users = [u for u in db.list(User, account_id) if u.is_active]
+    return min(users, key=lambda u: u.created_at, default=None)
 
 
 def get_current_account(
@@ -121,11 +121,8 @@ def get_current_account(
     token_data = decode_access_token(token)
     account_id = token_data["account_id"]
 
-    account = db.query(Account).filter(
-        Account.id == account_id,
-        Account.is_active.is_(True),
-    ).first()
-    if not account:
+    account = db.get_by_key(Account, account_id)
+    if not account or not account.is_active:
         raise HTTPException(status_code=401, detail="Account not found or inactive")
     return account
 

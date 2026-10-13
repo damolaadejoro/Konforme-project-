@@ -4,14 +4,14 @@ import secrets
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
 
 from auth import enforce_account_access, get_current_account
 from config import settings
-from database import get_db
+from database import Session, get_db
 from email_service import send_campaign_task_email
 from models import Account, AccountControl, BaseControl, CampaignTask, ControlCampaign
 from rate_limit import limiter
+from store import order_by
 from schemas import (
     AccountControlBulkRequest,
     AccountControlResponse,
@@ -65,7 +65,7 @@ def _campaign_to_response(c: ControlCampaign) -> CampaignResponse:
         deadline=c.deadline,
         createdAt=c.created_at.isoformat() if c.created_at else "",
         policyContent=c.policy_content,
-        tasks=[_task_to_response(t) for t in c.tasks],
+        tasks=[_task_to_response(t) for t in order_by(c.tasks, "sent_date")],
     )
 
 
@@ -77,7 +77,7 @@ def _campaign_to_response(c: ControlCampaign) -> CampaignResponse:
 @router.get("/base-controls", response_model=list[BaseControlResponse])
 def list_base_controls(db: Session = Depends(get_db)):
     """Return all 43 NIS2 control definitions. No auth required."""
-    rows = db.query(BaseControl).order_by(BaseControl.display_order).all()
+    rows = order_by(db.all(BaseControl), "display_order")
     return [
         BaseControlResponse(
             controlId=c.control_id,
@@ -105,12 +105,7 @@ def list_controls(
     db: Session = Depends(get_db),
 ):
     enforce_account_access(account, account_id)
-    rows = (
-        db.query(AccountControl)
-        .filter(AccountControl.account_id == account_id)
-        .order_by(AccountControl.control_id)
-        .all()
-    )
+    rows = order_by(db.list(AccountControl, account_id), "control_id")
     return [_ctrl_to_response(r) for r in rows]
 
 
@@ -123,12 +118,7 @@ def bulk_upsert_controls(
 ):
     enforce_account_access(account, account_id)
 
-    existing = {
-        ac.control_id: ac
-        for ac in db.query(AccountControl)
-        .filter(AccountControl.account_id == account_id)
-        .all()
-    }
+    existing = {ac.control_id: ac for ac in db.list(AccountControl, account_id)}
 
     import evidence_service
 
@@ -176,12 +166,7 @@ def bulk_upsert_controls(
 
     db.commit()
 
-    rows = (
-        db.query(AccountControl)
-        .filter(AccountControl.account_id == account_id)
-        .order_by(AccountControl.control_id)
-        .all()
-    )
+    rows = order_by(db.list(AccountControl, account_id), "control_id")
     return [_ctrl_to_response(r) for r in rows]
 
 
@@ -195,14 +180,7 @@ def update_control(
 ):
     enforce_account_access(account, account_id)
 
-    ac = (
-        db.query(AccountControl)
-        .filter(
-            AccountControl.account_id == account_id,
-            AccountControl.control_id == control_id,
-        )
-        .first()
-    )
+    ac = db.get_by_key(AccountControl, account_id, control_id=control_id)
 
     if not ac:
         # Auto-create on first PATCH (like assessment auto-save)
@@ -273,12 +251,7 @@ def list_campaigns(
     db: Session = Depends(get_db),
 ):
     enforce_account_access(account, account_id)
-    rows = (
-        db.query(ControlCampaign)
-        .filter(ControlCampaign.account_id == account_id)
-        .order_by(ControlCampaign.created_at.desc())
-        .all()
-    )
+    rows = order_by(db.list(ControlCampaign, account_id), "created_at", desc=True)
     return [_campaign_to_response(c) for c in rows]
 
 
@@ -300,7 +273,6 @@ def create_campaign(
         policy_content=req.policy_content,
     )
     db.add(campaign)
-    db.flush()
 
     base_url = settings.frontend_base_url
 
@@ -317,7 +289,6 @@ def create_campaign(
             completion_token=completion_token,
         )
         db.add(task)
-        db.flush()
 
         # Send task email (best-effort)
         completion_url = f"{base_url}/task/complete/{completion_token}"
@@ -349,12 +320,12 @@ def update_campaign_task(
 ):
     enforce_account_access(account, account_id)
 
-    task = db.query(CampaignTask).filter(CampaignTask.id == task_id).first()
+    task = db.get(CampaignTask, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
     # Verify the task belongs to this account
-    campaign = db.query(ControlCampaign).filter(ControlCampaign.id == task.campaign_id).first()
+    campaign = db.get_by_key(ControlCampaign, account_id, id=task.campaign_id)
     if not campaign or campaign.account_id != account_id:
         raise HTTPException(status_code=404, detail="Task not found")
 
@@ -379,7 +350,7 @@ def update_campaign_task(
 @limiter.limit("10/minute")
 def complete_task_by_token(token: str, request: Request, db: Session = Depends(get_db)):
     """Public endpoint — mark a campaign task as completed via unique token."""
-    task = db.query(CampaignTask).filter(CampaignTask.completion_token == token).first()
+    task = db.lookup(CampaignTask, "completion_token", token)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found or already completed")
 
@@ -397,11 +368,11 @@ def complete_task_by_token(token: str, request: Request, db: Session = Depends(g
 @router.get("/campaigns/tasks/complete/{token}")
 def get_task_by_token(token: str, db: Session = Depends(get_db)):
     """Public endpoint — get task info for the completion page."""
-    task = db.query(CampaignTask).filter(CampaignTask.completion_token == token).first()
+    task = db.lookup(CampaignTask, "completion_token", token)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found or already completed")
 
-    campaign = db.query(ControlCampaign).filter(ControlCampaign.id == task.campaign_id).first()
+    campaign = db.get(ControlCampaign, task.campaign_id)
 
     return {
         "task_id": task.id,

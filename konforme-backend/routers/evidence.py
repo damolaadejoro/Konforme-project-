@@ -6,13 +6,12 @@ import re
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
-from sqlalchemy.orm import Session
 
 import audit_service
 import evidence_service
 from auth import enforce_account_access, get_current_account, get_current_user
 from config import settings
-from database import get_db
+from database import Session, get_db
 from models import Account, Evidence, EvidenceLink, User
 from schemas import (
     EvidenceLinkedEntity,
@@ -141,7 +140,6 @@ async def upload_evidence_v2(
         after_state={"filename": ev.filename, "sha256": ev.sha256, "was_duplicate": was_dup},
     )
     db.commit()
-    db.refresh(ev)
     return _evidence_to_upload_response(ev, was_dup)
 
 
@@ -157,9 +155,9 @@ def link_evidence(
     enforce_account_access(account, account_id)
 
     # Verify evidence belongs to this account
-    ev = db.query(Evidence).filter(
-        Evidence.id == req.evidence_id, Evidence.account_id == account_id, Evidence.deleted_at.is_(None),
-    ).first()
+    ev = db.get_by_key(Evidence, account_id, id=req.evidence_id)
+    if ev and ev.deleted_at is not None:
+        ev = None
     if not ev:
         raise HTTPException(status_code=404, detail="Evidence not found")
 
@@ -172,7 +170,6 @@ def link_evidence(
         after_state={"entity_type": req.entity_type, "entity_id": req.entity_id, "link_type": req.link_type},
     )
     db.commit()
-    db.refresh(el)
     return _link_to_response(el)
 
 
@@ -187,7 +184,7 @@ def unlink_evidence(
     """Soft-unlink evidence from an entity."""
     enforce_account_access(account, account_id)
 
-    el = evidence_service.unlink(db, link_id)
+    el = evidence_service.unlink(db, link_id, account_id)
     if not el:
         raise HTTPException(status_code=404, detail="Link not found")
 
@@ -339,7 +336,6 @@ async def upload_evidence_legacy(
     evidence_service.link(db, ev.id, "control", control_id, "primary")
 
     db.commit()
-    db.refresh(ev)
     return _evidence_to_response(ev)
 
 
@@ -369,9 +365,9 @@ def update_evidence_metadata(
     """Update evidence description and/or tags."""
     enforce_account_access(account, account_id)
 
-    ev = db.query(Evidence).filter(
-        Evidence.id == evidence_id, Evidence.account_id == account_id, Evidence.deleted_at.is_(None),
-    ).first()
+    ev = db.get_by_key(Evidence, account_id, id=evidence_id)
+    if ev and ev.deleted_at is not None:
+        ev = None
     if not ev:
         raise HTTPException(status_code=404, detail="Evidence not found")
 
@@ -390,7 +386,6 @@ def update_evidence_metadata(
         after_state={"description": ev.description, "tags": ev.tags},
     )
     db.commit()
-    db.refresh(ev)
     return _evidence_to_upload_response(ev, False)
 
 

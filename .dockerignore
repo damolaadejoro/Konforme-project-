@@ -1,0 +1,15 @@
+# Build context is the repo root (see konforme-backend/Dockerfile.lambda)
+**/__pycache__
+**/*.pyc
+**/.venv
+**/.pytest_cache
+**/.env
+**/*.db
+.git
+.github
+konforme-backend/data
+konforme-backend/=42.0.0
+konforme-backend/test_*.py
+konforme-backend/conftest.py
+konforme-backend/Dockerfile*
+konforme-backend/docker-compose.yml

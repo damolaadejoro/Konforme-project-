@@ -3,15 +3,16 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from sqlalchemy.orm import Session
 
 from audit import log_scan_complete, log_scan_error, log_scan_start
 from auth import enforce_account_access, get_current_account
 from encryption import decrypt_value
-from database import SessionLocal, get_db
+from database import Session, SessionLocal, get_db
 from models import Account, AwsAccount, CloudCredential, Scan, ScanResult
 from scanner.nis2_mapping import NIS2_MAPPING
 from scanner.runner import run_all_checks
+from store import newest, order_by
+from task_dispatch import dispatch_worker_task
 from schemas import (
     DomainScoreResponse,
     FindingResponse,
@@ -75,7 +76,7 @@ def execute_scan(
 ):
     db = SessionLocal()
     try:
-        scan = db.query(Scan).filter(Scan.id == scan_id).first()
+        scan = db.get_by_key(Scan, account_id, id=scan_id)
         if not scan:
             return
         scan.status = "running"
@@ -114,8 +115,7 @@ def execute_scan(
                 elif cr.severity == "low":
                     low += 1
 
-        db.flush()
-        all_results = db.query(ScanResult).filter(ScanResult.scan_id == scan_id).all()
+        all_results = db.list(ScanResult, scan_id)
         score = _calculate_technical_score(all_results)
 
         scan.status = "complete"
@@ -132,7 +132,7 @@ def execute_scan(
         log_scan_complete(scan_id, account_id, score)
     except Exception as e:
         db.rollback()
-        scan = db.query(Scan).filter(Scan.id == scan_id).first()
+        scan = db.get_by_key(Scan, account_id, id=scan_id)
         if scan:
             scan.status = "error"
             db.commit()
@@ -151,14 +151,14 @@ def execute_provider_scan(
     """Execute a scan using the CloudProvider abstraction (for Azure or new providers)."""
     db = SessionLocal()
     try:
-        scan = db.query(Scan).filter(Scan.id == scan_id).first()
+        scan = db.get_by_key(Scan, account_id, id=scan_id)
         if not scan:
             return
         scan.status = "running"
         db.commit()
         log_scan_start(scan_id, account_id)
 
-        cred = db.query(CloudCredential).filter(CloudCredential.id == credential_id).first()
+        cred = db.get_by_key(CloudCredential, account_id, id=credential_id)
         if not cred:
             scan.status = "error"
             db.commit()
@@ -226,8 +226,7 @@ def execute_provider_scan(
                 elif cr.severity == "low":
                     low += 1
 
-        db.flush()
-        all_results = db.query(ScanResult).filter(ScanResult.scan_id == scan_id).all()
+        all_results = db.list(ScanResult, scan_id)
         score = _calculate_technical_score(all_results)
 
         scan.status = "complete"
@@ -244,7 +243,7 @@ def execute_provider_scan(
         log_scan_complete(scan_id, account_id, score)
     except Exception as e:
         db.rollback()
-        scan = db.query(Scan).filter(Scan.id == scan_id).first()
+        scan = db.get_by_key(Scan, account_id, id=scan_id)
         if scan:
             scan.status = "error"
             db.commit()
@@ -264,33 +263,31 @@ def start_scan(
     enforce_account_access(account, account_id)
 
     # Look up the AWS account and verify ownership
-    aws_acc = db.query(AwsAccount).filter(
-        AwsAccount.id == req.aws_account_id,
-        AwsAccount.account_id == account_id,
-        AwsAccount.is_active == True,
-    ).first()
+    aws_acc = db.get_by_key(AwsAccount, account_id, id=req.aws_account_id)
+    if aws_acc and not aws_acc.is_active:
+        aws_acc = None
     if not aws_acc:
         raise HTTPException(status_code=404, detail="AWS account not found or inactive")
 
     # Expire stale scans stuck in queued/running for over 10 minutes
     stale_cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
-    stale_scans = db.query(Scan).filter(
-        Scan.account_id == account_id,
-        Scan.aws_account_id == req.aws_account_id,
-        Scan.status.in_(["queued", "running"]),
-        Scan.started_at < stale_cutoff,
-    ).all()
+    account_scans = db.list(Scan, account_id)
+    stale_scans = [
+        s for s in account_scans
+        if s.aws_account_id == req.aws_account_id
+        and s.status in ("queued", "running")
+        and s.started_at < stale_cutoff
+    ]
     for s in stale_scans:
         s.status = "error"
     if stale_scans:
         db.commit()
 
     # Check for already running scan on this AWS account
-    running = db.query(Scan).filter(
-        Scan.account_id == account_id,
-        Scan.aws_account_id == req.aws_account_id,
-        Scan.status.in_(["queued", "running"]),
-    ).first()
+    running = next(
+        (s for s in account_scans if s.aws_account_id == req.aws_account_id and s.status in ("queued", "running")),
+        None,
+    )
     if running:
         raise HTTPException(
             status_code=409,
@@ -301,9 +298,16 @@ def start_scan(
     scan = Scan(account_id=account_id, aws_account_id=aws_acc.id)
     db.add(scan)
     db.commit()
-    db.refresh(scan)
 
-    background_tasks.add_task(
+    dispatch_worker_task(
+        background_tasks,
+        {
+            "task": "scan_aws",
+            "scan_id": scan.id,
+            "aws_account_id": aws_acc.id,
+            "account_id": account.id,
+            "account_name": account.name,
+        },
         execute_scan,
         scan.id,
         decrypt_value(aws_acc.aws_access_key_id),
@@ -328,11 +332,9 @@ def start_provider_scan(
     """Start a scan using a cloud credential (supports AWS and Azure)."""
     enforce_account_access(account, account_id)
 
-    cred = db.query(CloudCredential).filter(
-        CloudCredential.id == req.credential_id,
-        CloudCredential.account_id == account_id,
-        CloudCredential.is_active == True,
-    ).first()
+    cred = db.get_by_key(CloudCredential, account_id, id=req.credential_id)
+    if cred and not cred.is_active:
+        cred = None
     if not cred:
         raise HTTPException(status_code=404, detail="Cloud credential not found or inactive")
 
@@ -344,23 +346,23 @@ def start_provider_scan(
 
     # Expire stale scans
     stale_cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
-    stale_scans = db.query(Scan).filter(
-        Scan.account_id == account_id,
-        Scan.cloud_credential_id == req.credential_id,
-        Scan.status.in_(["queued", "running"]),
-        Scan.started_at < stale_cutoff,
-    ).all()
+    account_scans = db.list(Scan, account_id)
+    stale_scans = [
+        s for s in account_scans
+        if s.cloud_credential_id == req.credential_id
+        and s.status in ("queued", "running")
+        and s.started_at < stale_cutoff
+    ]
     for s in stale_scans:
         s.status = "error"
     if stale_scans:
         db.commit()
 
     # Check for running scan
-    running = db.query(Scan).filter(
-        Scan.account_id == account_id,
-        Scan.cloud_credential_id == req.credential_id,
-        Scan.status.in_(["queued", "running"]),
-    ).first()
+    running = next(
+        (s for s in account_scans if s.cloud_credential_id == req.credential_id and s.status in ("queued", "running")),
+        None,
+    )
     if running:
         raise HTTPException(
             status_code=409,
@@ -375,9 +377,17 @@ def start_provider_scan(
     )
     db.add(scan)
     db.commit()
-    db.refresh(scan)
 
-    background_tasks.add_task(
+    dispatch_worker_task(
+        background_tasks,
+        {
+            "task": "scan_provider",
+            "scan_id": scan.id,
+            "credential_id": cred.id,
+            "provider": req.provider,
+            "account_id": account.id,
+            "account_name": account.name,
+        },
         execute_provider_scan,
         scan.id,
         cred.id,
@@ -395,7 +405,9 @@ def get_scan(
     account: Account = Depends(get_current_account),
     db: Session = Depends(get_db),
 ):
-    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    # Direct read for the caller's own scans (consistent while a new scan is being polled);
+    # the id index only matters for the 403 on someone else's scan
+    scan = db.get_by_key(Scan, account.id, id=scan_id) or db.get(Scan, scan_id)
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
     enforce_account_access(account, scan.account_id)
@@ -405,7 +417,7 @@ def get_scan(
     region = aws_acc.aws_region if aws_acc else "unknown"
     aws_account_id_str = aws_acc.aws_account_id if aws_acc else ""
 
-    results = db.query(ScanResult).filter(ScanResult.scan_id == scan_id).all()
+    results = db.list(ScanResult, scan_id)
     domain_scores = _build_domain_scores(results)
 
     findings = []
@@ -465,15 +477,9 @@ def get_latest_scan(
 ):
     enforce_account_access(account, account_id)
 
-    scan = (
-        db.query(Scan)
-        .filter(
-            Scan.account_id == account_id,
-            Scan.aws_account_id == aws_account_id,
-            Scan.status == "complete",
-        )
-        .order_by(Scan.completed_at.desc())
-        .first()
+    scan = newest(
+        [s for s in db.list(Scan, account_id) if s.aws_account_id == aws_account_id and s.status == "complete"],
+        "completed_at",
     )
     if not scan:
         raise HTTPException(status_code=404, detail="No completed scan found")
@@ -482,7 +488,7 @@ def get_latest_scan(
     region = aws_acc.aws_region if aws_acc else "unknown"
     aws_account_id_str = aws_acc.aws_account_id if aws_acc else ""
 
-    results = db.query(ScanResult).filter(ScanResult.scan_id == scan.id).all()
+    results = db.list(ScanResult, scan.id)
     domain_scores = _build_domain_scores(results)
 
     findings = []
@@ -542,14 +548,10 @@ def get_scan_history(
 ):
     enforce_account_access(account, account_id)
 
-    scans = (
-        db.query(Scan)
-        .filter(
-            Scan.account_id == account_id,
-            Scan.aws_account_id == aws_account_id,
-        )
-        .order_by(Scan.started_at.desc())
-        .all()
+    scans = order_by(
+        [s for s in db.list(Scan, account_id) if s.aws_account_id == aws_account_id],
+        "started_at",
+        desc=True,
     )
 
     return [

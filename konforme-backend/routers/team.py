@@ -4,14 +4,14 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
 
 from auth import get_current_user, hash_password, require_role
-from database import get_db
+from database import Session, get_db
 from email_service import send_invite_email
-from models import User, UserRole
+from models import Account, User, UserRole
 from rate_limit import limiter
 from routers.auth_router import _validate_password
+from store import IntegrityError, order_by
 from schemas import AcceptInviteRequest, InviteRequest, TeamMemberResponse, UpdateMemberRoleRequest
 
 INVITE_TOKEN_EXPIRY_DAYS = 7
@@ -37,12 +37,7 @@ def list_members(
     user: User = Depends(require_role(UserRole.owner, UserRole.admin)),
     db: Session = Depends(get_db),
 ):
-    members = (
-        db.query(User)
-        .filter(User.account_id == user.account_id)
-        .order_by(User.created_at)
-        .all()
-    )
+    members = order_by(db.list(User, user.account_id), "created_at")
     return [_user_to_response(m) for m in members]
 
 
@@ -60,7 +55,7 @@ def invite_members(
         email_lower = email.lower().strip()
 
         # Check if user already exists in this account
-        existing = db.query(User).filter(User.email == email_lower).first()
+        existing = db.lookup(User, "email", email_lower)
         if existing:
             if existing.account_id == user.account_id:
                 continue  # Already a member, skip
@@ -81,10 +76,9 @@ def invite_members(
             email_verified=False,
         )
         db.add(new_user)
-        db.flush()
 
         # Send invite email (fire-and-forget)
-        account = user.account
+        account = db.get_by_key(Account, user.account_id)
         try:
             send_invite_email(
                 email=email_lower,
@@ -98,7 +92,11 @@ def invite_members(
 
         invited.append(new_user)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # An invited email was registered elsewhere between the check and the save
+        raise HTTPException(status_code=409, detail="One of these emails is already associated with another organization")
     return [_user_to_response(u) for u in invited]
 
 
@@ -106,7 +104,7 @@ def invite_members(
 @limiter.limit("10/hour")
 def accept_invite_redirect(token: str, request: Request, db: Session = Depends(get_db)):
     """Public endpoint — validates token and returns info for the frontend signup form."""
-    user = db.query(User).filter(User.invite_token == token).first()
+    user = db.lookup(User, "invite_token", token)
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or expired invitation token")
 
@@ -117,7 +115,7 @@ def accept_invite_redirect(token: str, request: Request, db: Session = Depends(g
         db.commit()
         raise HTTPException(status_code=400, detail="Invalid or expired invitation token")
 
-    account = user.account
+    account = db.get_by_key(Account, user.account_id)
     return {
         "email": user.email,
         "org_name": account.name if account else "",
@@ -131,7 +129,7 @@ def accept_invite(req: AcceptInviteRequest, request: Request, db: Session = Depe
     """Public endpoint — accept an invitation by setting name and password."""
     _validate_password(req.password)
 
-    user = db.query(User).filter(User.invite_token == req.token).first()
+    user = db.lookup(User, "invite_token", req.token)
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or expired invitation token")
 
@@ -167,7 +165,7 @@ def update_member_role(
     if req.role not in ("admin", "member"):
         raise HTTPException(status_code=422, detail="Role must be 'admin' or 'member'")
 
-    target = db.query(User).filter(User.id == user_id, User.account_id == user.account_id).first()
+    target = db.get_by_key(User, user.account_id, id=user_id)
     if not target:
         raise HTTPException(status_code=404, detail="Member not found")
 
@@ -186,7 +184,7 @@ def remove_member(
     user: User = Depends(require_role(UserRole.owner, UserRole.admin)),
     db: Session = Depends(get_db),
 ):
-    target = db.query(User).filter(User.id == user_id, User.account_id == user.account_id).first()
+    target = db.get_by_key(User, user.account_id, id=user_id)
     if not target:
         raise HTTPException(status_code=404, detail="Member not found")
 
@@ -195,11 +193,10 @@ def remove_member(
 
     if target.role == UserRole.owner.value:
         # Ensure at least one active owner remains
-        owner_count = db.query(User).filter(
-            User.account_id == user.account_id,
-            User.role == UserRole.owner.value,
-            User.is_active.is_(True),
-        ).count()
+        owner_count = sum(
+            1 for u in db.list(User, user.account_id)
+            if u.role == UserRole.owner.value and u.is_active
+        )
         if owner_count <= 1:
             raise HTTPException(status_code=400, detail="Cannot remove the last account owner")
 

@@ -1,26 +1,26 @@
 import secrets
-import threading
 from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from sqlalchemy.orm import Session
-
 from audit import log_auth_success, log_login_failure, log_register
+from task_dispatch import fire_and_forget
 from auth import (
     create_access_token,
     create_refresh_token,
     decode_refresh_token,
+    first_active_user,
     get_current_account,
     get_current_user,
     hash_password,
     verify_password,
 )
 from config import settings
-from database import get_db
+from database import Session, get_db
 from email_service import send_password_reset_email, send_verification_email
 from models import Account, User, UserRole
 from rate_limit import limiter
+from store import IntegrityError
 from schemas import AuthResponse, ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, UpdateEmailRequest
 
 router = APIRouter()
@@ -114,7 +114,7 @@ def _notify_signup(name: str, email: str, country: str | None):
         except Exception:
             pass
 
-    threading.Thread(target=_send, daemon=True).start()
+    fire_and_forget(_send)
 
 
 def _send_verification_async(email: str, token: str, lang: str = "en"):
@@ -124,7 +124,7 @@ def _send_verification_async(email: str, token: str, lang: str = "en"):
             send_verification_email(email, token, lang=lang)
         except Exception:
             pass
-    threading.Thread(target=_send, daemon=True).start()
+    fire_and_forget(_send)
 
 
 @router.post("/auth/register", response_model=AuthResponse)
@@ -133,8 +133,8 @@ def register(req: RegisterRequest, request: Request, response: Response, db: Ses
     _validate_password(req.password)
 
     # Check if email exists in either Account or User
-    existing_user = db.query(User).filter(User.email == req.email).first()
-    existing_account = db.query(Account).filter(Account.email == req.email).first()
+    existing_user = db.lookup(User, "email", req.email)
+    existing_account = db.lookup(Account, "email", req.email)
     if existing_user or existing_account:
         raise HTTPException(status_code=409, detail="An account with this email already exists")
 
@@ -165,9 +165,11 @@ def register(req: RegisterRequest, request: Request, response: Response, db: Ses
         email_verification_expires=datetime.now(timezone.utc) + timedelta(hours=VERIFICATION_TOKEN_EXPIRY_HOURS),
     )
     db.add(user)
-    db.commit()
-    db.refresh(account)
-    db.refresh(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        # Lost a race with a concurrent signup for the same email
+        raise HTTPException(status_code=409, detail="An account with this email already exists")
 
     access_token = create_access_token(account.id, user.id)
     refresh_token = create_refresh_token(account.id, user.id)
@@ -196,7 +198,9 @@ def register(req: RegisterRequest, request: Request, response: Response, db: Ses
 @limiter.limit("5/minute")
 def login(req: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     # Try User table first, fall back to Account for backward compat
-    user = db.query(User).filter(User.email == req.email, User.is_active.is_(True)).first()
+    user = db.lookup(User, "email", req.email)
+    if user and not user.is_active:
+        user = None
 
     if user:
         # Check user lockout
@@ -219,7 +223,7 @@ def login(req: LoginRequest, request: Request, response: Response, db: Session =
         user.locked_until = None
         db.commit()
 
-        account = user.account
+        account = db.get_by_key(Account, user.account_id)
         access_token = create_access_token(account.id, user.id)
         refresh_token = create_refresh_token(account.id, user.id)
         csrf_token = _generate_csrf_token()
@@ -255,16 +259,15 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
     account_id = token_data["account_id"]
     user_id = token_data.get("user_id")
 
-    account = db.query(Account).filter(
-        Account.id == account_id,
-        Account.is_active.is_(True),
-    ).first()
-    if not account:
+    account = db.get_by_key(Account, account_id)
+    if not account or not account.is_active:
         raise HTTPException(status_code=401, detail="Account not found or inactive")
 
     user = None
     if user_id:
-        user = db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
+        user = db.get_by_key(User, account_id, id=user_id)
+        if user and not user.is_active:
+            user = None
 
     access_token = create_access_token(account.id, user.id if user else None)
     refresh_token = create_refresh_token(account.id, user.id if user else None)
@@ -309,13 +312,15 @@ def get_me(request: Request, db: Session = Depends(get_db), account: Account = D
             token_data = decode_access_token(token)
             uid = token_data.get("user_id")
             if uid:
-                user = db.query(User).filter(User.id == uid, User.is_active.is_(True)).first()
+                user = db.get_by_key(User, account.id, id=uid)
+                if user and not user.is_active:
+                    user = None
     except Exception:
         pass
 
     if not user:
         # Fallback: find first user for this account
-        user = db.query(User).filter(User.account_id == account.id, User.is_active.is_(True)).order_by(User.created_at).first()
+        user = first_active_user(db, account.id)
 
     result = {
         "account_id": account.id,
@@ -335,7 +340,7 @@ def get_me(request: Request, db: Session = Depends(get_db), account: Account = D
 @limiter.limit("10/hour")
 def verify_email(token: str, request: Request, db: Session = Depends(get_db)):
     """Public endpoint — verifies email by token."""
-    user = db.query(User).filter(User.email_verification_token == token).first()
+    user = db.lookup(User, "email_verification_token", token)
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or expired verification token")
 
@@ -355,7 +360,7 @@ def verify_email(token: str, request: Request, db: Session = Depends(get_db)):
     user.email_verification_token = None
     user.email_verification_expires = None
     # Also update Account-level flag
-    account = user.account
+    account = db.get_by_key(Account, user.account_id)
     if account:
         account.email_verified = True
     db.commit()
@@ -366,7 +371,7 @@ def verify_email(token: str, request: Request, db: Session = Depends(get_db)):
 @limiter.limit("3/minute")
 def resend_verification(request: Request, account: Account = Depends(get_current_account), db: Session = Depends(get_db)):
     """Resend verification email for the authenticated user."""
-    user = db.query(User).filter(User.account_id == account.id, User.is_active.is_(True)).order_by(User.created_at).first()
+    user = first_active_user(db, account.id)
 
     if user and user.email_verified:
         return {"detail": "Email is already verified"}
@@ -388,7 +393,7 @@ def resend_verification(request: Request, account: Account = Depends(get_current
 @limiter.limit("3/minute")
 def update_email(req: UpdateEmailRequest, request: Request, account: Account = Depends(get_current_account), db: Session = Depends(get_db)):
     """Allow authenticated unverified users to fix their email address."""
-    user = db.query(User).filter(User.account_id == account.id, User.is_active.is_(True)).order_by(User.created_at).first()
+    user = first_active_user(db, account.id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -400,8 +405,8 @@ def update_email(req: UpdateEmailRequest, request: Request, account: Account = D
         raise HTTPException(status_code=400, detail="This is already your current email")
 
     # Check uniqueness across both tables
-    existing_user = db.query(User).filter(User.email == new_email).first()
-    existing_account = db.query(Account).filter(Account.email == new_email).first()
+    existing_user = db.lookup(User, "email", new_email)
+    existing_account = db.lookup(Account, "email", new_email)
     if existing_user or existing_account:
         raise HTTPException(status_code=409, detail="An account with this email already exists")
 
@@ -413,7 +418,10 @@ def update_email(req: UpdateEmailRequest, request: Request, account: Account = D
     verification_token = secrets.token_urlsafe(32)
     user.email_verification_token = verification_token
     user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=VERIFICATION_TOKEN_EXPIRY_HOURS)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="An account with this email already exists")
 
     _send_verification_async(new_email, verification_token, lang=account.language or "en")
 
@@ -424,7 +432,9 @@ def update_email(req: UpdateEmailRequest, request: Request, account: Account = D
 @limiter.limit("3/minute")
 def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
     """Step 1: Send a password reset email with a secure token."""
-    user = db.query(User).filter(User.email == req.email, User.is_active.is_(True)).first()
+    user = db.lookup(User, "email", req.email)
+    if user and not user.is_active:
+        user = None
 
     # Always return success to prevent email enumeration
     success_msg = {"detail": "If an account exists with this email, a password reset link has been sent"}
@@ -439,7 +449,7 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
     db.commit()
 
     # Resolve language from the user's account
-    account = db.query(Account).filter(Account.id == user.account_id).first()
+    account = db.get_by_key(Account, user.account_id)
     reset_lang = account.language or "en" if account else "en"
 
     # Fire-and-forget email
@@ -448,7 +458,7 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
             send_password_reset_email(user.email, token, lang=reset_lang)
         except Exception:
             pass
-    threading.Thread(target=_send, daemon=True).start()
+    fire_and_forget(_send)
 
     return success_msg
 
@@ -459,12 +469,9 @@ def reset_password(req: ResetPasswordRequest, request: Request, db: Session = De
     """Step 2: Reset password using a valid token from the email."""
     _validate_password(req.new_password)
 
-    user = db.query(User).filter(
-        User.password_reset_token == req.token,
-        User.is_active.is_(True),
-    ).first()
+    user = db.lookup(User, "password_reset_token", req.token)
 
-    if not user or not user.password_reset_expires:
+    if not user or not user.is_active or not user.password_reset_expires:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
 
     if user.password_reset_expires < datetime.now(timezone.utc):

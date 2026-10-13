@@ -8,10 +8,8 @@ import logging
 from calendar import monthrange
 from datetime import date, datetime, timezone
 
-from sqlalchemy import func
-from sqlalchemy.orm import Session
-
 import audit_service
+from database import Session
 from models import (
     BusinessProcess,
     EvidenceLink,
@@ -21,6 +19,7 @@ from models import (
     User,
 )
 from scripts.seed_continuous_baseline import get_baseline_templates
+from store import order_by
 
 logger = logging.getLogger(__name__)
 
@@ -136,22 +135,12 @@ def instantiate_baseline(
     templates = get_baseline_templates()
 
     # Fetch existing baseline template IDs for this account
-    existing_ids = set(
-        row[0]
-        for row in db.query(PeopleTask.baseline_template_id)
-        .filter(
-            PeopleTask.account_id == account_id,
-            PeopleTask.baseline_template_id.isnot(None),
-        )
-        .all()
-    )
+    existing_ids = {
+        t.baseline_template_id for t in db.list(PeopleTask, account_id) if t.baseline_template_id is not None
+    }
 
     # Fetch critical business processes
-    processes = (
-        db.query(BusinessProcess)
-        .filter(BusinessProcess.account_id == account_id, BusinessProcess.is_critical.is_(True))
-        .all()
-    )
+    processes = [p for p in order_by(db.list(BusinessProcess, account_id), "created_at") if p.is_critical]
 
     created = 0
     skipped = 0
@@ -238,7 +227,6 @@ def instantiate_baseline(
             after_state={"created": created, "skipped": skipped, "process_count": len(processes)},
         )
 
-    db.flush()
     return {"created": created, "skipped": skipped}
 
 
@@ -258,15 +246,7 @@ def complete_task(
     now = datetime.now(timezone.utc)
 
     # Check for existing completion
-    existing = (
-        db.query(PeopleTaskCompletion)
-        .filter(
-            PeopleTaskCompletion.people_task_id == task.id,
-            PeopleTaskCompletion.user_id == user.id,
-            PeopleTaskCompletion.period_key == period_key,
-        )
-        .first()
-    )
+    existing = db.get_by_key(PeopleTaskCompletion, task.id, user_id=user.id, period_key=period_key)
     if existing:
         raise ValueError(f"Already completed for period {period_key}")
 
@@ -279,11 +259,11 @@ def complete_task(
         evidence_id=evidence_id,
     )
     db.add(completion)
-    db.flush()
 
     # Link evidence if provided
     if evidence_id:
         link = EvidenceLink(
+            account_id=task.account_id,
             evidence_id=evidence_id,
             entity_type="people_task_completion",
             entity_id=completion.id,
@@ -315,13 +295,8 @@ def consume_pending_instantiations(db: Session, account_id: str) -> int:
 
     Returns number of tasks created.
     """
-    pending = (
-        db.query(PendingPeopleTaskInstantiation)
-        .filter(
-            PendingPeopleTaskInstantiation.account_id == account_id,
-            PendingPeopleTaskInstantiation.status == "pending",
-        )
-        .all()
+    pending = order_by(
+        [p for p in db.list(PendingPeopleTaskInstantiation, account_id) if p.status == "pending"], "created_at"
     )
 
     if not pending:
@@ -360,7 +335,6 @@ def consume_pending_instantiations(db: Session, account_id: str) -> int:
             after_state={"created": created},
         )
 
-    db.flush()
     return created
 
 
@@ -372,11 +346,7 @@ def get_isms_coverage(db: Session, account_id: str) -> dict:
     today = date.today()
 
     # All active tasks
-    tasks = (
-        db.query(PeopleTask)
-        .filter(PeopleTask.account_id == account_id, PeopleTask.active.is_(True))
-        .all()
-    )
+    tasks = [t for t in db.list(PeopleTask, account_id) if t.active]
 
     if not tasks:
         return {
@@ -401,14 +371,7 @@ def get_isms_coverage(db: Session, account_id: str) -> dict:
     completions_by_task: dict[str, int] = {}
     for t in tasks:
         pk = compute_period_key(t.frequency)
-        count = (
-            db.query(func.count(PeopleTaskCompletion.id))
-            .filter(
-                PeopleTaskCompletion.people_task_id == t.id,
-                PeopleTaskCompletion.period_key == pk,
-            )
-            .scalar()
-        )
+        count = sum(1 for c in db.list(PeopleTaskCompletion, t.id) if c.period_key == pk)
         completions_by_task[t.id] = count or 0
 
     total_active = len(tasks)
@@ -495,16 +458,10 @@ def roll_period(db: Session) -> dict:
     Called by the daily scheduler. Returns {"rolled": int}.
     """
     today = date.today()
-    tasks = (
-        db.query(PeopleTask)
-        .filter(
-            PeopleTask.active.is_(True),
-            PeopleTask.next_due_date.isnot(None),
-            PeopleTask.next_due_date < today,
-            PeopleTask.frequency != "one_off",
-        )
-        .all()
-    )
+    tasks = [
+        t for t in db.all(PeopleTask)
+        if t.active and t.next_due_date is not None and t.next_due_date < today and t.frequency != "one_off"
+    ]
 
     rolled = 0
     for task in tasks:
@@ -514,7 +471,6 @@ def roll_period(db: Session) -> dict:
             rolled += 1
 
     if rolled:
-        db.flush()
         logger.info("Rolled %d people task periods", rolled)
 
     return {"rolled": rolled}
@@ -525,14 +481,11 @@ def get_task_period_status(
 ) -> str:
     """Return current period status for a task: 'completed', 'overdue', or 'pending'."""
     pk = compute_period_key(task.frequency)
-    query = db.query(PeopleTaskCompletion).filter(
-        PeopleTaskCompletion.people_task_id == task.id,
-        PeopleTaskCompletion.period_key == pk,
-    )
+    completions = [c for c in db.list(PeopleTaskCompletion, task.id) if c.period_key == pk]
     if user_id:
-        query = query.filter(PeopleTaskCompletion.user_id == user_id)
+        completions = [c for c in completions if c.user_id == user_id]
 
-    if query.first():
+    if completions:
         return "completed"
     if task.next_due_date and task.next_due_date < date.today():
         return "overdue"

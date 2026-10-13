@@ -404,21 +404,21 @@ def seed_country_data(db, filepath: Path) -> tuple[str, int, int]:
         return "", 0, 0
 
     # Look up country — must already exist (run seed_countries.py first)
-    country = db.query(Country).filter(Country.code == code).first()
+    country = db.get_by_key(Country, code=code)
     if not country:
         print(f"  SKIP {code}: country not in DB (run seed_countries.py first)")
         return code, 0, 0
 
     # ── Controls: delete and re-insert (idempotent) ──
-    db.query(CountryControl).filter(CountryControl.country_id == country.id).delete()
+    for old in db.list(CountryControl, country.id):
+        db.delete(old)
     controls = generate_controls(data, country.id)
     for c in controls:
         db.add(CountryControl(**c))
 
     # ── Additional questions: delete and re-insert ──
-    db.query(CountryAssessmentQuestion).filter(
-        CountryAssessmentQuestion.country_id == country.id
-    ).delete()
+    for old in db.list(CountryAssessmentQuestion, country.id):
+        db.delete(old)
     questions = generate_additional_questions(data, country.id)
     for q in questions:
         db.add(CountryAssessmentQuestion(**q))
@@ -461,11 +461,10 @@ def main():
         print(f"  {total_questions} country_assessment_questions rows")
 
         # Verify
-        ctrl_db = db.query(CountryControl).count()
-        q_db = db.query(CountryAssessmentQuestion).count()
-        q_additional = db.query(CountryAssessmentQuestion).filter(
-            CountryAssessmentQuestion.is_additional == True  # noqa: E712
-        ).count()
+        all_questions = db.all(CountryAssessmentQuestion)
+        ctrl_db = len(db.all(CountryControl))
+        q_db = len(all_questions)
+        q_additional = sum(1 for q in all_questions if q.is_additional)
         print(f"\nDatabase totals:")
         print(f"  country_controls: {ctrl_db}")
         print(f"  country_assessment_questions: {q_db} ({q_additional} additional)")

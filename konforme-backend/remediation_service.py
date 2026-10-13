@@ -2,9 +2,8 @@
 
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy.orm import Session
-
 import audit_service
+from database import Session
 from models import (
     AssessmentQuestionControl,
     BaseControl,
@@ -15,6 +14,7 @@ from models import (
     RemediationPlanMilestone,
     RemediationTask,
 )
+from store import order_by
 
 
 def _utcnow() -> datetime:
@@ -47,7 +47,6 @@ def create_plan(
         created_by_user_id=actor_user_id,
     )
     db.add(plan)
-    db.flush()
 
     for ent in linked_entities:
         db.add(RemediationPlanLink(
@@ -57,10 +56,10 @@ def create_plan(
         ))
 
     if initial_task_ids:
-        db.query(RemediationTask).filter(
-            RemediationTask.id.in_(initial_task_ids),
-            RemediationTask.account_id == account_id,
-        ).update({"plan_id": plan.id}, synchronize_session="fetch")
+        wanted = set(initial_task_ids)
+        for t in db.list(RemediationTask, account_id):
+            if t.id in wanted:
+                t.plan_id = plan.id
 
     audit_service.emit(
         db, account_id, "remediation.plan_create",
@@ -179,7 +178,6 @@ def add_milestone(
         display_order=display_order,
     )
     db.add(ms)
-    db.flush()
     return ms
 
 
@@ -231,9 +229,7 @@ def close_task(
 
     # If the task targets a people-control, enqueue for Phase 4
     if task.related_control_id:
-        base = db.query(BaseControl).filter(
-            BaseControl.control_id == task.related_control_id
-        ).first()
+        base = db.get_by_key(BaseControl, control_id=task.related_control_id)
         if base and base.is_people_control:
             db.add(PendingPeopleTaskInstantiation(
                 account_id=task.account_id,
@@ -277,11 +273,11 @@ def bulk_dismiss(
     actor_user_id: str | None = None,
     actor_email: str | None = None,
 ) -> int:
-    tasks = db.query(RemediationTask).filter(
-        RemediationTask.id.in_(task_ids),
-        RemediationTask.account_id == account_id,
-        RemediationTask.status.in_(["open", "in_progress"]),
-    ).all()
+    wanted = set(task_ids)
+    tasks = [
+        t for t in db.list(RemediationTask, account_id)
+        if t.id in wanted and t.status in ("open", "in_progress")
+    ]
 
     now = _utcnow()
     for task in tasks:
@@ -372,7 +368,8 @@ def auto_create_tasks(
     task_index = 0  # counter for staggering within this batch
 
     # Get all question-control mappings
-    mappings = db.query(AssessmentQuestionControl).all()
+    mappings = order_by(db.all(AssessmentQuestionControl), "created_at")  # seed order, as before
+    account_tasks = db.list(RemediationTask, account_id)
     mapping_by_q: dict[str, list[AssessmentQuestionControl]] = {}
     for m in mappings:
         mapping_by_q.setdefault(m.question_id, []).append(m)
@@ -386,11 +383,9 @@ def auto_create_tasks(
             continue
 
         # Skip if open/in_progress task already exists for this question
-        existing = db.query(RemediationTask).filter(
-            RemediationTask.account_id == account_id,
-            RemediationTask.question_id == q_id,
-            RemediationTask.status.in_(["open", "in_progress"]),
-        ).first()
+        existing = next(
+            (t for t in account_tasks if t.question_id == q_id and t.status in ("open", "in_progress")), None
+        )
         if existing:
             continue
 
@@ -420,7 +415,7 @@ def auto_create_tasks(
             related_assessment_answer_id=resp.id,
         )
         db.add(task)
-        db.flush()
+        account_tasks.append(task)
 
         audit_service.emit(
             db, account_id, "remediation.auto_create",
@@ -475,18 +470,16 @@ def auto_create_task_for_control(
     from models import BaseControl
 
     # Skip if open/in_progress task already exists for this control
-    existing = db.query(RemediationTask).filter(
-        RemediationTask.account_id == account_id,
-        RemediationTask.related_control_id == control_id,
-        RemediationTask.status.in_(["open", "in_progress"]),
-    ).first()
+    existing = next(
+        (t for t in db.list(RemediationTask, account_id)
+         if t.related_control_id == control_id and t.status in ("open", "in_progress")),
+        None,
+    )
     if existing:
         return None
 
     # Get control metadata for smart scheduling
-    base = db.query(BaseControl).filter(
-        BaseControl.control_id == control_id
-    ).first()
+    base = db.get_by_key(BaseControl, control_id=control_id)
     title = base.title if base else control_id
     severity = base.severity if base else "medium"
     display_order = base.display_order if base else 0
@@ -507,7 +500,6 @@ def auto_create_task_for_control(
         related_control_id=control_id,
     )
     db.add(task)
-    db.flush()
 
     audit_service.emit(
         db, account_id, "remediation.auto_create",
@@ -540,11 +532,11 @@ def auto_create_tasks_for_single_question(
     from assessment_questions import QUESTION_MAP
 
     # Skip if open/in_progress task already exists
-    existing = db.query(RemediationTask).filter(
-        RemediationTask.account_id == account_id,
-        RemediationTask.question_id == question_id,
-        RemediationTask.status.in_(["open", "in_progress"]),
-    ).first()
+    existing = next(
+        (t for t in db.list(RemediationTask, account_id)
+         if t.question_id == question_id and t.status in ("open", "in_progress")),
+        None,
+    )
     if existing:
         return None
 
@@ -553,9 +545,9 @@ def auto_create_tasks_for_single_question(
     severity = q_data.get("severity", "medium") if q_data else "medium"
 
     # Get mapped control
-    q_mappings = db.query(AssessmentQuestionControl).filter(
-        AssessmentQuestionControl.question_id == question_id
-    ).all()
+    q_mappings = order_by(
+        [m for m in db.all(AssessmentQuestionControl) if m.question_id == question_id], "created_at"
+    )
     control_id = q_mappings[0].control_id if q_mappings else None
 
     priority = _severity_to_priority(severity)
@@ -574,7 +566,6 @@ def auto_create_tasks_for_single_question(
         related_control_id=control_id,
     )
     db.add(task)
-    db.flush()
 
     audit_service.emit(
         db, account_id, "remediation.auto_create",
@@ -602,11 +593,10 @@ def auto_close_tasks_for_control(
     actor_email: str | None = None,
 ) -> int:
     """Auto-close open/in_progress remediation tasks when a control is set to Implemented/Partial."""
-    tasks = db.query(RemediationTask).filter(
-        RemediationTask.account_id == account_id,
-        RemediationTask.related_control_id == control_id,
-        RemediationTask.status.in_(["open", "in_progress"]),
-    ).all()
+    tasks = [
+        t for t in db.list(RemediationTask, account_id)
+        if t.related_control_id == control_id and t.status in ("open", "in_progress")
+    ]
 
     now = datetime.utcnow()
     for task in tasks:
@@ -634,11 +624,10 @@ def auto_close_tasks_for_question(
     actor_email: str | None = None,
 ) -> int:
     """Auto-close open/in_progress remediation tasks when an assessment answer reaches maturity >= 2."""
-    tasks = db.query(RemediationTask).filter(
-        RemediationTask.account_id == account_id,
-        RemediationTask.question_id == question_id,
-        RemediationTask.status.in_(["open", "in_progress"]),
-    ).all()
+    tasks = [
+        t for t in db.list(RemediationTask, account_id)
+        if t.question_id == question_id and t.status in ("open", "in_progress")
+    ]
 
     now = datetime.utcnow()
     for task in tasks:

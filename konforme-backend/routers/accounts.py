@@ -1,12 +1,11 @@
 import boto3
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 
 from audit import log_aws_account_added, log_aws_account_removed
 from auth import get_current_account
 from encryption import encrypt_value
-from database import get_db
+from database import Session, get_db
 from models import Account, AwsAccount
 from eu_countries import VALID_EU_CODES
 from schemas import (
@@ -72,8 +71,8 @@ def update_account(
     if req.name is not None:
         account.name = req.name
     if req.email is not None:
-        existing = db.query(Account).filter(Account.email == req.email, Account.id != account.id).first()
-        if existing:
+        existing = db.lookup(Account, "email", req.email)
+        if existing and existing.id != account.id:
             raise HTTPException(status_code=409, detail="An account with this email already exists")
         account.email = req.email
     if req.country is not None:
@@ -100,11 +99,10 @@ def add_aws_account(
     )
 
     # Prevent duplicate: same AWS account ID already linked to this Konforme account
-    existing = db.query(AwsAccount).filter(
-        AwsAccount.account_id == account.id,
-        AwsAccount.aws_account_id == aws_account_id,
-        AwsAccount.is_active == True,
-    ).first()
+    existing = next(
+        (a for a in db.list(AwsAccount, account.id) if a.aws_account_id == aws_account_id and a.is_active),
+        None,
+    )
     if existing:
         raise HTTPException(status_code=409, detail="This AWS account is already connected")
 
@@ -132,10 +130,7 @@ def remove_aws_account(
     account: Account = Depends(get_current_account),
     db: Session = Depends(get_db),
 ):
-    aws_acc = db.query(AwsAccount).filter(
-        AwsAccount.id == aws_account_id,
-        AwsAccount.account_id == account.id,
-    ).first()
+    aws_acc = db.get_by_key(AwsAccount, account.id, id=aws_account_id)
     if not aws_acc:
         raise HTTPException(status_code=404, detail="AWS account not found")
 

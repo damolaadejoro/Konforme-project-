@@ -1,15 +1,31 @@
 """Audit log endpoints: paginated list, single event, chain verification."""
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
-from sqlalchemy.orm import Session
 
 from auth import enforce_account_access, get_current_account, get_current_user
-from database import get_db
+from database import Session, get_db
 from models import Account, AuditLog, User, UserRole
 from schemas import AuditLogEntry, AuditLogResponse, ChainVerificationResponse
+from store import order_by
 
 router = APIRouter()
+
+
+def _parse_bound(value: str) -> datetime:
+    """Parse a date/datetime filter like PostgreSQL would (naive = UTC)."""
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"Invalid date: {value}")
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _page(rows: list[AuditLog], page: int, per_page: int) -> tuple[list[AuditLog], int]:
+    ordered = order_by(rows, "occurred_at", desc=True)
+    start = (page - 1) * per_page
+    return ordered[start:start + per_page], len(ordered)
 
 
 def _row_to_entry(row: AuditLog) -> AuditLogEntry:
@@ -45,33 +61,30 @@ def list_audit_log(
     """List audit log entries for an account with optional filters."""
     enforce_account_access(account, account_id)
 
-    query = db.query(AuditLog).filter(AuditLog.account_id == account_id)
+    rows = db.list(AuditLog, account_id)
 
     if event_type:
-        query = query.filter(AuditLog.event_type == event_type)
+        rows = [r for r in rows if r.event_type == event_type]
     if entity_type:
-        query = query.filter(AuditLog.entity_type == entity_type)
+        rows = [r for r in rows if r.entity_type == entity_type]
     if entity_id:
-        query = query.filter(AuditLog.entity_id == entity_id)
+        rows = [r for r in rows if r.entity_id == entity_id]
     if actor_user_id:
-        query = query.filter(AuditLog.actor_user_id == actor_user_id)
+        rows = [r for r in rows if r.actor_user_id == actor_user_id]
     if q:
-        like_q = f"%{q}%"
-        query = query.filter(
-            (AuditLog.entity_label.ilike(like_q)) | (AuditLog.actor_email.ilike(like_q))
-        )
+        needle = q.lower()
+        rows = [
+            r for r in rows
+            if needle in (r.entity_label or "").lower() or needle in (r.actor_email or "").lower()
+        ]
     if date_from:
-        query = query.filter(AuditLog.occurred_at >= date_from)
+        lower = _parse_bound(date_from)
+        rows = [r for r in rows if r.occurred_at and r.occurred_at >= lower]
     if date_to:
-        query = query.filter(AuditLog.occurred_at <= date_to)
+        upper = _parse_bound(date_to)
+        rows = [r for r in rows if r.occurred_at and r.occurred_at <= upper]
 
-    total = query.count()
-    rows = (
-        query.order_by(AuditLog.occurred_at.desc())
-        .offset((page - 1) * per_page)
-        .limit(per_page)
-        .all()
-    )
+    rows, total = _page(rows, page, per_page)
 
     return AuditLogResponse(
         items=[_row_to_entry(r) for r in rows],
@@ -113,9 +126,7 @@ def get_audit_event(
     """Get a single audit log event."""
     enforce_account_access(account, account_id)
 
-    row = db.query(AuditLog).filter(
-        AuditLog.id == event_id, AuditLog.account_id == account_id,
-    ).first()
+    row = db.get_by_key(AuditLog, account_id, id=event_id)
     if not row:
         raise HTTPException(status_code=404, detail="Audit event not found")
     return _row_to_entry(row)
@@ -129,14 +140,9 @@ def get_my_activity(
     db: Session = Depends(get_db),
 ):
     """Get current user's activity across all accounts."""
-    query = db.query(AuditLog).filter(AuditLog.actor_user_id == user.id)
-    total = query.count()
-    rows = (
-        query.order_by(AuditLog.occurred_at.desc())
-        .offset((page - 1) * per_page)
-        .limit(per_page)
-        .all()
-    )
+    # A user's events are in their account's log, plus account-less events
+    candidates = db.list(AuditLog, user.account_id) + db.list(AuditLog, None)
+    rows, total = _page([r for r in candidates if r.actor_user_id == user.id], page, per_page)
     return AuditLogResponse(
         items=[_row_to_entry(r) for r in rows],
         total=total,
