@@ -1,47 +1,41 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from moto import mock_aws
 
-from database import Base, get_db
-from main import app
-from rate_limit import limiter
+# Fake credentials so nothing can reach a real AWS account
+os.environ.setdefault("AWS_ACCESS_KEY_ID", "testing")
+os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "testing")
+os.environ.setdefault("AWS_DEFAULT_REGION", "eu-west-1")
 
-
-@pytest.fixture()
-def db_session():
-    """Create an in-memory SQLite database for each test."""
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = TestingSession()
-    try:
-        yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(bind=engine)
+import store  # noqa: E402
+from main import app  # noqa: E402
+from rate_limit import limiter  # noqa: E402
 
 
 @pytest.fixture()
-def client(db_session):
-    """FastAPI test client with overridden DB dependency and rate limiting disabled."""
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
+def dynamodb():
+    """A fresh in-memory DynamoDB table (moto) for each test."""
+    with mock_aws():
+        store.reset_connections()
+        store.create_table()
+        yield
+        store.reset_connections()
 
-    app.dependency_overrides[get_db] = override_get_db
+
+@pytest.fixture()
+def db_session(dynamodb):
+    return store.Session()
+
+
+@pytest.fixture()
+def client(dynamodb):
+    """FastAPI test client backed by the mocked table, with rate limiting disabled."""
     limiter.enabled = False
     with TestClient(app) as c:
         yield c
     limiter.enabled = True
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture()

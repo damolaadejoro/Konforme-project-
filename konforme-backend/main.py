@@ -7,7 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import settings
-from database import Base, engine, run_migrations
+from database import SessionLocal
 from rate_limit import limiter
 from routers import accounts, assessment, audit_log, business_processes, cloud_credentials, controls, countries, evidence, mappings, people_tasks, remediation, reports, scans, score
 from routers import settings as settings_router
@@ -130,11 +130,9 @@ app.include_router(reports.router, prefix="/api/v1", tags=["Reports"])
 
 @app.get("/health")
 def health_check():
-    from sqlalchemy import text
-    from database import SessionLocal
+    from store import ping
     try:
-        with SessionLocal() as db:
-            db.execute(text("SELECT 1"))
+        ping()
         db_status = "connected"
     except Exception:
         db_status = "unavailable"
@@ -145,9 +143,7 @@ def health_check():
 WEAK_SECRET_KEYS = {"change-me", "change-me-to-a-random-string", "secret", ""}
 
 
-@app.on_event("startup")
-def on_startup():
-    # Production safety checks
+def check_production_settings():
     if settings.environment == "production":
         if settings.secret_key in WEAK_SECRET_KEYS or len(settings.secret_key) < 32:
             raise RuntimeError(
@@ -165,16 +161,22 @@ def on_startup():
                 "COOKIE_SECURE must be True in production to prevent cookies being sent over HTTP."
             )
 
-    Base.metadata.create_all(bind=engine)
-    run_migrations(engine)
 
-    # Seed base control definitions (idempotent)
-    from database import SessionLocal
+def bootstrap_database():
+    # Seed base control definitions (idempotent). The table itself is created by Terraform.
     from scripts.seed_base_controls import seed_base_controls
     from scripts.seed_question_control_mappings import seed_question_control_mappings
     with SessionLocal() as db:
         seed_base_controls(db)
         seed_question_control_mappings(db)
+
+
+# Not used on Lambda (see lambda_handler.py): there, seeding runs in the migrate
+# function and the daily jobs are triggered by EventBridge Scheduler.
+@app.on_event("startup")
+def on_startup():
+    check_production_settings()
+    bootstrap_database()
 
     # Start background scheduler (overdue reminders, chronic slip escalation)
     from scheduler import start_scheduler

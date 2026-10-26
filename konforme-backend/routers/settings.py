@@ -1,12 +1,12 @@
 import json
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 
 from audit import log_scoring_config_changed
 from auth import get_current_account
-from database import get_db
+from database import Session, get_db
 from models import Account, AccountControl, AssessmentVersion, Country, CountryAssessmentQuestion, Scan
+from store import newest
 from schemas import ScoringConfig, ScoringConfigResponse, ScoringConfigUpdateResponse
 
 router = APIRouter()
@@ -48,23 +48,19 @@ def _grade(score: float | None) -> str | None:
 
 def _compute_controls_score_for_preview(account: Account, db: Session) -> float | None:
     """Lightweight controls score for preview — mirrors score.py logic."""
-    from routers.score import CONTROL_SEVERITY_MAP, CTRL_STATUS_WEIGHTS, CTRL_SEVERITY_WEIGHTS
+    from routers.score import CTRL_STATUS_WEIGHTS, CTRL_SEVERITY_WEIGHTS, _get_severity_map
 
-    rows = db.query(AccountControl).filter(AccountControl.account_id == account.id).all()
+    severity_map = _get_severity_map(db)
+    rows = db.list(AccountControl, account.id)
     saved_statuses: dict[str, str] = {r.control_id: r.status for r in rows}
 
-    all_control_ids = list(CONTROL_SEVERITY_MAP.keys())
+    all_control_ids = list(severity_map.keys())
     if account.country_id:
-        country = db.query(Country).filter(Country.id == account.country_id).first()
+        country = db.get(Country, account.country_id)
         if country:
-            additional_qs = (
-                db.query(CountryAssessmentQuestion)
-                .filter(
-                    CountryAssessmentQuestion.country_id == account.country_id,
-                    CountryAssessmentQuestion.is_additional.is_(True),
-                )
-                .all()
-            )
+            additional_qs = [
+                q for q in db.list(CountryAssessmentQuestion, account.country_id) if q.is_additional
+            ]
             for i, _q in enumerate(additional_qs, 1):
                 all_control_ids.append(f"country-ctrl-{country.code.lower()}-{i}")
 
@@ -74,7 +70,7 @@ def _compute_controls_score_for_preview(account: Account, db: Session) -> float 
     weighted_sum = 0.0
     total_weight = 0.0
     for ctrl_id in all_control_ids:
-        severity = CONTROL_SEVERITY_MAP.get(ctrl_id, "high")
+        severity = severity_map.get(ctrl_id, "high")
         sev_w = CTRL_SEVERITY_WEIGHTS.get(severity, 1)
         status = saved_statuses.get(ctrl_id, "Not Started")
         status_w = CTRL_STATUS_WEIGHTS.get(status, 0)
@@ -88,17 +84,9 @@ def _compute_controls_score_for_preview(account: Account, db: Session) -> float 
 
 def _preview_score(account: Account, config: dict, db: Session) -> tuple[float | None, str | None]:
     """Compute what the overall score would be with the given config."""
-    scan = (
-        db.query(Scan)
-        .filter(Scan.account_id == account.id, Scan.status == "complete")
-        .order_by(Scan.completed_at.desc())
-        .first()
-    )
-    assessment = (
-        db.query(AssessmentVersion)
-        .filter(AssessmentVersion.account_id == account.id, AssessmentVersion.status == "submitted")
-        .order_by(AssessmentVersion.submitted_at.desc())
-        .first()
+    scan = newest([s for s in db.list(Scan, account.id) if s.status == "complete"], "completed_at")
+    assessment = newest(
+        [v for v in db.list(AssessmentVersion, account.id) if v.status == "submitted"], "submitted_at"
     )
 
     tech = scan.overall_score if scan else None

@@ -9,12 +9,12 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
-from sqlalchemy.orm import Session
 
 from auth import enforce_account_access, get_current_account
-from database import get_db
+from database import Session, get_db
 from encryption import decrypt_value, encrypt_value
 from models import Account, CloudCredential, OAuthState
+from store import order_by
 from schemas import (
     AddAwsAccountRequest,
     AddAwsRoleRequest,
@@ -69,11 +69,8 @@ def list_cloud_credentials(
     db: Session = Depends(get_db),
 ):
     enforce_account_access(account, account_id)
-    creds = (
-        db.query(CloudCredential)
-        .filter(CloudCredential.account_id == account_id, CloudCredential.is_active == True)
-        .all()
-    )
+    # Previously unordered (insertion order); added_at keeps that order
+    creds = order_by([c for c in db.list(CloudCredential, account_id) if c.is_active], "added_at")
     return CloudCredentialListResponse(
         credentials=[_credential_to_response(c) for c in creds]
     )
@@ -125,14 +122,7 @@ def remove_cloud_credential(
     db: Session = Depends(get_db),
 ):
     enforce_account_access(account, account_id)
-    cred = (
-        db.query(CloudCredential)
-        .filter(
-            CloudCredential.id == credential_id,
-            CloudCredential.account_id == account_id,
-        )
-        .first()
-    )
+    cred = db.get_by_key(CloudCredential, account_id, id=credential_id)
     if not cred:
         raise HTTPException(status_code=404, detail="Cloud credential not found")
     cred.is_active = False
@@ -158,15 +148,9 @@ def validate_cloud_credential(
     db: Session = Depends(get_db),
 ):
     enforce_account_access(account, account_id)
-    cred = (
-        db.query(CloudCredential)
-        .filter(
-            CloudCredential.id == credential_id,
-            CloudCredential.account_id == account_id,
-            CloudCredential.is_active == True,
-        )
-        .first()
-    )
+    cred = db.get_by_key(CloudCredential, account_id, id=credential_id)
+    if cred and not cred.is_active:
+        cred = None
     if not cred:
         raise HTTPException(status_code=404, detail="Cloud credential not found")
 
@@ -268,16 +252,9 @@ def complete_aws_role_connection(
     """Validate the IAM role and activate the credential."""
     enforce_account_access(account, account_id)
 
-    cred = (
-        db.query(CloudCredential)
-        .filter(
-            CloudCredential.id == req.credential_id,
-            CloudCredential.account_id == account_id,
-            CloudCredential.aws_connection_type == "role",
-            CloudCredential.is_active == False,
-        )
-        .first()
-    )
+    cred = db.get_by_key(CloudCredential, account_id, id=req.credential_id)
+    if cred and (cred.aws_connection_type != "role" or cred.is_active):
+        cred = None
     if not cred:
         raise HTTPException(status_code=404, detail="Pending AWS role credential not found")
 
@@ -285,14 +262,9 @@ def complete_aws_role_connection(
     aws_account_id = _validate_role_arn(req.role_arn, external_id)
 
     # Duplicate check
-    existing = (
-        db.query(CloudCredential)
-        .filter(
-            CloudCredential.account_id == account_id,
-            CloudCredential.aws_role_arn == req.role_arn,
-            CloudCredential.is_active == True,
-        )
-        .first()
+    existing = next(
+        (c for c in db.list(CloudCredential, account_id) if c.aws_role_arn == req.role_arn and c.is_active),
+        None,
     )
     if existing:
         raise HTTPException(status_code=409, detail="This IAM role is already connected")
@@ -402,15 +374,9 @@ def azure_oauth_callback(
         return RedirectResponse(url=f"{frontend_url}/settings?azure_error=missing_state")
 
     # Validate state
-    oauth_state = (
-        db.query(OAuthState)
-        .filter(
-            OAuthState.state_token == state,
-            OAuthState.provider == "azure",
-            OAuthState.expires_at > datetime.now(timezone.utc),
-        )
-        .first()
-    )
+    oauth_state = db.lookup(OAuthState, "state_token", state)
+    if oauth_state and (oauth_state.provider != "azure" or oauth_state.expires_at <= datetime.now(timezone.utc)):
+        oauth_state = None
     if not oauth_state:
         return RedirectResponse(url=f"{frontend_url}/settings?azure_error=invalid_or_expired_state")
 

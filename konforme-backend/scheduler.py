@@ -16,11 +16,7 @@ scheduler = BackgroundScheduler()
 
 def _get_account_admins(db, account_id: str) -> list[str]:
     """Return emails of owner/admin users for an account."""
-    users = db.query(User).filter(
-        User.account_id == account_id,
-        User.is_active.is_(True),
-        User.role.in_(["owner", "admin"]),
-    ).all()
+    users = [u for u in db.list(User, account_id) if u.is_active and u.role in ("owner", "admin")]
     return [u.email for u in users if u.email]
 
 
@@ -33,10 +29,10 @@ def send_overdue_reminders():
     db = SessionLocal()
     try:
         today = date.today()
-        overdue_tasks = db.query(RemediationTask).filter(
-            RemediationTask.status.in_(["open", "in_progress"]),
-            RemediationTask.due_date < today,
-        ).all()
+        overdue_tasks = [
+            t for t in db.all(RemediationTask)
+            if t.status in ("open", "in_progress") and t.due_date is not None and t.due_date < today
+        ]
 
         if not overdue_tasks:
             return
@@ -55,7 +51,7 @@ def send_overdue_reminders():
                 emails = [assignee] if "@" in assignee else []
 
             # Get account language
-            account = db.query(Account).filter(Account.id == account_id).first()
+            account = db.get_by_key(Account, account_id)
             lang = account.language if account and account.language else "en"
 
             for email in emails:
@@ -94,18 +90,14 @@ def escalate_chronic_slips():
     db = SessionLocal()
     try:
         # Find tasks that have been rescheduled 3+ times
-        candidates = db.query(RemediationTask).filter(
-            RemediationTask.status.in_(["open", "in_progress"]),
-            RemediationTask.reschedule_count >= 3,
-        ).all()
+        open_tasks = [t for t in db.all(RemediationTask) if t.status in ("open", "in_progress")]
+        candidates = [t for t in open_tasks if (t.reschedule_count or 0) >= 3]
 
         # Also check cumulative extension for tasks with fewer reschedules
-        additional = db.query(RemediationTask).filter(
-            RemediationTask.status.in_(["open", "in_progress"]),
-            RemediationTask.reschedule_count >= 1,
-            RemediationTask.reschedule_count < 3,
-            RemediationTask.original_due_date.isnot(None),
-        ).all()
+        additional = [
+            t for t in open_tasks
+            if 1 <= (t.reschedule_count or 0) < 3 and t.original_due_date is not None
+        ]
 
         chronic_tasks = list(candidates)
         for task in additional:
@@ -122,7 +114,7 @@ def escalate_chronic_slips():
 
         for account_id, tasks in by_account.items():
             admin_emails = _get_account_admins(db, account_id)
-            account = db.query(Account).filter(Account.id == account_id).first()
+            account = db.get_by_key(Account, account_id)
             lang = account.language if account and account.language else "en"
 
             for email in admin_emails:
@@ -177,15 +169,10 @@ def detect_overdue_people_tasks():
     db = SessionLocal()
     try:
         today = date.today()
-        overdue = (
-            db.query(PeopleTask)
-            .filter(
-                PeopleTask.active.is_(True),
-                PeopleTask.next_due_date.isnot(None),
-                PeopleTask.next_due_date < today,
-            )
-            .all()
-        )
+        overdue = [
+            t for t in db.all(PeopleTask)
+            if t.active and t.next_due_date is not None and t.next_due_date < today
+        ]
 
         if not overdue:
             return
@@ -196,7 +183,7 @@ def detect_overdue_people_tasks():
 
         for account_id, tasks in by_account.items():
             admin_emails = _get_account_admins(db, account_id)
-            account = db.query(Account).filter(Account.id == account_id).first()
+            account = db.get_by_key(Account, account_id)
             lang = account.language if account and account.language else "en"
 
             for email in admin_emails:

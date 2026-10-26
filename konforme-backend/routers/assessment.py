@@ -1,7 +1,6 @@
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 
 from assessment_questions import (
     ARTICLES,
@@ -15,8 +14,9 @@ from assessment_questions import (
     calculate_human_score,
 )
 from auth import enforce_account_access, get_current_account
-from database import get_db
+from database import Session, get_db
 from models import Account, Assessment, AssessmentResponse, AssessmentVersion
+from store import newest, order_by
 from schemas import (
     ArticleScoreOut,
     AssessmentCompareResponse,
@@ -89,7 +89,6 @@ def submit_assessment(
     )
     db.add(assessment)
     db.commit()
-    db.refresh(assessment)
 
     gaps = _build_gaps(responses_raw)
 
@@ -113,10 +112,7 @@ def get_assessment(
 
     # Try V2 first
     latest_v2 = (
-        db.query(AssessmentVersion)
-        .filter(AssessmentVersion.account_id == account_id)
-        .order_by(AssessmentVersion.submitted_at.desc())
-        .first()
+        newest(db.list(AssessmentVersion, account_id), "submitted_at")
     )
 
     questions = [
@@ -207,10 +203,7 @@ def submit_assessment_v2(
 
     # Calculate version number
     latest = (
-        db.query(AssessmentVersion)
-        .filter(AssessmentVersion.account_id == account_id)
-        .order_by(AssessmentVersion.version.desc())
-        .first()
+        newest(db.list(AssessmentVersion, account_id), "version")
     )
     next_version = (latest.version + 1) if latest else 1
 
@@ -226,7 +219,6 @@ def submit_assessment_v2(
         status="submitted",
     )
     db.add(version)
-    db.flush()
 
     # Create responses
     for r in req.responses:
@@ -239,7 +231,6 @@ def submit_assessment_v2(
         ))
 
     db.commit()
-    db.refresh(version)
 
     # Auto-manage remediation tasks based on assessment results
     import remediation_service
@@ -307,10 +298,7 @@ def get_assessment_history(
     enforce_account_access(account, account_id)
 
     versions = (
-        db.query(AssessmentVersion)
-        .filter(AssessmentVersion.account_id == account_id)
-        .order_by(AssessmentVersion.version.desc())
-        .all()
+        order_by(db.list(AssessmentVersion, account_id), "version", desc=True)
     )
 
     summaries = []
@@ -347,9 +335,7 @@ def get_assessment_version(
     enforce_account_access(account, account_id)
 
     version = (
-        db.query(AssessmentVersion)
-        .filter(AssessmentVersion.id == version_id, AssessmentVersion.account_id == account_id)
-        .first()
+        db.get_by_key(AssessmentVersion, account_id, id=version_id)
     )
     if not version:
         raise HTTPException(status_code=404, detail="Assessment version not found")
@@ -397,20 +383,15 @@ def auto_save_response(
 
     # Find or create draft version
     draft = (
-        db.query(AssessmentVersion)
-        .filter(
-            AssessmentVersion.account_id == account_id,
-            AssessmentVersion.status == "draft",
+        next(
+            (v for v in order_by(db.list(AssessmentVersion, account_id), "version") if v.status == "draft"),
+            None,
         )
-        .first()
     )
 
     if not draft:
         latest = (
-            db.query(AssessmentVersion)
-            .filter(AssessmentVersion.account_id == account_id)
-            .order_by(AssessmentVersion.version.desc())
-            .first()
+            newest(db.list(AssessmentVersion, account_id), "version")
         )
         next_version = (latest.version + 1) if latest else 1
         draft = AssessmentVersion(
@@ -419,7 +400,6 @@ def auto_save_response(
             status="draft",
         )
         db.add(draft)
-        db.flush()
 
     # Enforce evidence requirement for maturity level >= 3
     if req.maturity_level is not None and req.maturity_level >= 3:
@@ -433,12 +413,7 @@ def auto_save_response(
 
     # Update or create response
     existing = (
-        db.query(AssessmentResponse)
-        .filter(
-            AssessmentResponse.assessment_version_id == draft.id,
-            AssessmentResponse.question_id == question_id,
-        )
-        .first()
+        next((r for r in db.list(AssessmentResponse, draft.id) if r.question_id == question_id), None)
     )
 
     if existing:

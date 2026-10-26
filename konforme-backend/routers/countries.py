@@ -1,11 +1,11 @@
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 
 from auth import get_current_account
-from database import get_db
+from database import Session, get_db
 from models import Account, AccountControl, BaseControl, Country, CountryAssessmentQuestion, CountryControl, CountryDeadline, EntityTier
+from store import order_by
 from schemas import (
     CountryAssessmentQuestionResponse,
     CountryControlResponse,
@@ -30,7 +30,7 @@ def _parse_json(text: str, fallback=None):
 
 
 def _get_country_or_404(code: str, db: Session) -> Country:
-    country = db.query(Country).filter(Country.code == code.upper()).first()
+    country = db.get_by_key(Country, code=code.upper())
     if not country:
         raise HTTPException(status_code=404, detail=f"Country not found: {code}")
     return country
@@ -39,7 +39,7 @@ def _get_country_or_404(code: str, db: Session) -> Country:
 @router.get("/countries", response_model=list[CountryListItem])
 def list_countries(db: Session = Depends(get_db)):
     """List all countries with transposition status."""
-    countries = db.query(Country).order_by(Country.name).all()
+    countries = order_by(db.all(Country), "name")
     return [
         CountryListItem(
             code=c.code,
@@ -82,7 +82,8 @@ def get_country(code: str, db: Session = Depends(get_db)):
 def get_country_tiers(code: str, db: Session = Depends(get_db)):
     """Get entity tiers for a country."""
     country = _get_country_or_404(code, db)
-    tiers = db.query(EntityTier).filter(EntityTier.country_id == country.id).all()
+    # Previously unordered (insertion order); created_at keeps that order
+    tiers = order_by(db.list(EntityTier, country.id), "created_at")
     return [
         EntityTierResponse(
             id=t.id,
@@ -102,7 +103,7 @@ def get_country_tiers(code: str, db: Session = Depends(get_db)):
 def get_country_controls(code: str, db: Session = Depends(get_db)):
     """Get country-specific controls."""
     country = _get_country_or_404(code, db)
-    controls = db.query(CountryControl).filter(CountryControl.country_id == country.id).all()
+    controls = order_by(db.list(CountryControl, country.id), "created_at")
     return [
         CountryControlResponse(
             id=cc.id,
@@ -123,12 +124,7 @@ def get_country_controls(code: str, db: Session = Depends(get_db)):
 def get_country_deadlines(code: str, db: Session = Depends(get_db)):
     """Get country deadlines."""
     country = _get_country_or_404(code, db)
-    deadlines = (
-        db.query(CountryDeadline)
-        .filter(CountryDeadline.country_id == country.id)
-        .order_by(CountryDeadline.deadline_date)
-        .all()
-    )
+    deadlines = order_by(db.list(CountryDeadline, country.id), "deadline_date")
     return [
         CountryDeadlineResponse(
             id=d.id,
@@ -145,11 +141,7 @@ def get_country_deadlines(code: str, db: Session = Depends(get_db)):
 def get_country_assessment_questions(code: str, db: Session = Depends(get_db)):
     """Get country-specific assessment questions."""
     country = _get_country_or_404(code, db)
-    questions = (
-        db.query(CountryAssessmentQuestion)
-        .filter(CountryAssessmentQuestion.country_id == country.id)
-        .all()
-    )
+    questions = order_by(db.list(CountryAssessmentQuestion, country.id), "created_at")
     return [
         CountryAssessmentQuestionResponse(
             id=q.id,
@@ -180,16 +172,9 @@ def set_account_country(
     account.country = country.code  # Keep the ISO code in sync
 
     if req.entity_tier:
-        tier = (
-            db.query(EntityTier)
-            .filter(EntityTier.country_id == country.id, EntityTier.tier_key == req.entity_tier)
-            .first()
-        )
+        tier = db.get_by_key(EntityTier, country.id, tier_key=req.entity_tier)
         if not tier:
-            valid_tiers = [
-                t.tier_key
-                for t in db.query(EntityTier).filter(EntityTier.country_id == country.id).all()
-            ]
+            valid_tiers = [t.tier_key for t in order_by(db.list(EntityTier, country.id), "created_at")]
             raise HTTPException(
                 status_code=422,
                 detail=f"Invalid entity tier '{req.entity_tier}' for {country.code}. Valid: {valid_tiers}",
@@ -217,15 +202,10 @@ def _instantiate_controls(db: Session, account: Account, country: Country, entit
 
     Idempotent — skips controls that already exist for this account.
     """
-    existing_ids = {
-        ac.control_id
-        for ac in db.query(AccountControl.control_id)
-        .filter(AccountControl.account_id == account.id)
-        .all()
-    }
+    existing_ids = {ac.control_id for ac in db.list(AccountControl, account.id)}
 
     # 1. All 43 base NIS2 controls
-    base_controls = db.query(BaseControl).all()
+    base_controls = order_by(db.all(BaseControl), "display_order")
     for bc in base_controls:
         if bc.control_id not in existing_ids:
             db.add(AccountControl(
@@ -237,11 +217,7 @@ def _instantiate_controls(db: Session, account: Account, country: Country, entit
             existing_ids.add(bc.control_id)
 
     # 2. Country-specific controls (filtered by entity tier if set)
-    country_controls = (
-        db.query(CountryControl)
-        .filter(CountryControl.country_id == country.id)
-        .all()
-    )
+    country_controls = db.list(CountryControl, country.id)
     for cc in country_controls:
         if cc.control_id in existing_ids:
             continue

@@ -4,12 +4,11 @@ import hashlib
 import json
 import uuid
 
-from sqlalchemy import func
-from sqlalchemy.orm import Session
-
 from config import settings
+from database import Session
 from models import BaseControl, BusinessProcess, Evidence, EvidenceLink, PeopleTask, RemediationTask
 from storage import get_storage
+from store import order_by
 
 
 BLOCKED_EXTENSIONS = {".exe", ".sh", ".bat", ".msi", ".zip", ".tar", ".rar", ".gz", ".7z"}
@@ -49,14 +48,10 @@ def upload(
     sha = compute_sha256(content)
 
     # Check for dedup within this account
-    existing = (
-        db.query(Evidence)
-        .filter(
-            Evidence.account_id == account_id,
-            Evidence.sha256 == sha,
-            Evidence.deleted_at.is_(None),
-        )
-        .first()
+    existing = next(
+        (e for e in order_by(db.list(Evidence, account_id), "uploaded_at")
+         if e.sha256 == sha and e.deleted_at is None),
+        None,
     )
     if existing:
         return existing, True
@@ -80,7 +75,6 @@ def upload(
         uploaded_by_user_id=user_id,
     )
     db.add(ev)
-    db.flush()
     return ev, False
 
 
@@ -93,20 +87,27 @@ def link(
     user_id: str | None = None,
 ) -> EvidenceLink:
     """Link evidence to an entity. Idempotent on (evidence_id, entity_type, entity_id) while active."""
-    existing = (
-        db.query(EvidenceLink)
-        .filter(
-            EvidenceLink.evidence_id == evidence_id,
-            EvidenceLink.entity_type == entity_type,
-            EvidenceLink.entity_id == entity_id,
-            EvidenceLink.unlinked_at.is_(None),
-        )
-        .first()
+    from datetime import datetime, timezone
+
+    ev = db.get(Evidence, evidence_id)
+    if ev is None:
+        raise LookupError(f"Evidence {evidence_id} not found")
+
+    existing = db.get_by_key(
+        EvidenceLink, ev.account_id, evidence_id=evidence_id, entity_type=entity_type, entity_id=entity_id
     )
+    if existing and existing.unlinked_at is None:
+        return existing
     if existing:
+        # One row per (evidence, entity): re-linking reactivates the soft-unlinked row
+        existing.unlinked_at = None
+        existing.link_type = link_type
+        existing.linked_by_user_id = user_id
+        existing.linked_at = datetime.now(timezone.utc)
         return existing
 
     el = EvidenceLink(
+        account_id=ev.account_id,
         evidence_id=evidence_id,
         entity_type=entity_type,
         entity_id=entity_id,
@@ -114,19 +115,20 @@ def link(
         linked_by_user_id=user_id,
     )
     db.add(el)
-    db.flush()
     return el
 
 
-def unlink(db: Session, link_id: str) -> EvidenceLink | None:
-    """Soft unlink — sets unlinked_at. Returns the link or None if not found."""
+def unlink(db: Session, link_id: str, account_id: str) -> EvidenceLink | None:
+    """Soft unlink — sets unlinked_at. Returns the link or None if not found in this account."""
     from datetime import datetime, timezone
 
-    el = db.query(EvidenceLink).filter(EvidenceLink.id == link_id, EvidenceLink.unlinked_at.is_(None)).first()
+    el = next(
+        (lnk for lnk in db.list(EvidenceLink, account_id) if lnk.id == link_id and lnk.unlinked_at is None),
+        None,
+    )
     if not el:
         return None
     el.unlinked_at = datetime.now(timezone.utc)
-    db.flush()
     return el
 
 
@@ -137,20 +139,17 @@ def get_for_entity(
     entity_id: str,
 ) -> list[dict]:
     """Get all evidence linked to a specific entity, with link info."""
-    links = (
-        db.query(EvidenceLink, Evidence)
-        .join(Evidence, EvidenceLink.evidence_id == Evidence.id)
-        .filter(
-            Evidence.account_id == account_id,
-            Evidence.deleted_at.is_(None),
-            EvidenceLink.entity_type == entity_type,
-            EvidenceLink.entity_id == entity_id,
-            EvidenceLink.unlinked_at.is_(None),
-        )
-        .order_by(Evidence.uploaded_at.desc())
-        .all()
-    )
-    return [{"evidence": ev, "link": lnk} for lnk, ev in links]
+    evidence_by_id = {e.id: e for e in db.list(Evidence, account_id) if e.deleted_at is None}
+    pairs = [
+        (lnk, evidence_by_id[lnk.evidence_id])
+        for lnk in db.list(EvidenceLink, account_id)
+        if lnk.entity_type == entity_type
+        and lnk.entity_id == entity_id
+        and lnk.unlinked_at is None
+        and lnk.evidence_id in evidence_by_id
+    ]
+    pairs.sort(key=lambda p: p[1].uploaded_at, reverse=True)
+    return [{"evidence": ev, "link": lnk} for lnk, ev in pairs]
 
 
 def search_library(
@@ -165,40 +164,37 @@ def search_library(
 
     Returns (items_with_link_count, total_count).
     """
-    query = db.query(Evidence).filter(
-        Evidence.account_id == account_id,
-        Evidence.deleted_at.is_(None),
-    )
+    matches = [e for e in db.list(Evidence, account_id) if e.deleted_at is None]
+
+    def contains(value: str | None, needle: str) -> bool:
+        # SQL ILIKE '%needle%'
+        return needle.lower() in (value or "").lower()
 
     if q:
-        like_q = f"%{q}%"
-        query = query.filter(
-            (Evidence.filename.ilike(like_q))
-            | (Evidence.description.ilike(like_q))
-            | (Evidence.tags.ilike(like_q))
-        )
+        matches = [e for e in matches if contains(e.filename, q) or contains(e.description, q) or contains(e.tags, q)]
 
     if tags:
         for tag in tags:
-            query = query.filter(Evidence.tags.ilike(f'%"{tag}"%'))
+            matches = [e for e in matches if contains(e.tags, f'"{tag}"')]
 
-    total = query.count()
-    rows = query.order_by(Evidence.uploaded_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    total = len(matches)
+    start = (page - 1) * per_page
+    rows = order_by(matches, "uploaded_at", desc=True)[start:start + per_page]
 
     # Get link counts and linked entity details
     ev_ids = [ev.id for ev in rows]
     links_by_evidence: dict[str, list] = {eid: [] for eid in ev_ids}
     if ev_ids:
-        active_links = (
-            db.query(EvidenceLink)
-            .filter(EvidenceLink.evidence_id.in_(ev_ids), EvidenceLink.unlinked_at.is_(None))
-            .all()
-        )
+        wanted = set(ev_ids)
+        active_links = [
+            lnk for lnk in db.list(EvidenceLink, account_id)
+            if lnk.evidence_id in wanted and lnk.unlinked_at is None
+        ]
         for lnk in active_links:
             links_by_evidence.setdefault(lnk.evidence_id, []).append(lnk)
 
     # Batch-resolve entity names
-    entity_names = _resolve_entity_names(db, active_links if ev_ids else [])
+    entity_names = _resolve_entity_names(db, account_id, active_links if ev_ids else [])
 
     results = []
     for ev in rows:
@@ -221,7 +217,7 @@ def search_library(
     return results, total
 
 
-def _resolve_entity_names(db: Session, links: list[EvidenceLink]) -> dict[tuple[str, str], str]:
+def _resolve_entity_names(db: Session, account_id: str, links: list[EvidenceLink]) -> dict[tuple[str, str], str]:
     """Batch-resolve human-readable names for linked entities."""
     names: dict[tuple[str, str], str] = {}
     by_type: dict[str, set[str]] = {}
@@ -231,38 +227,30 @@ def _resolve_entity_names(db: Session, links: list[EvidenceLink]) -> dict[tuple[
     # Controls
     control_ids = by_type.get("control", set())
     if control_ids:
-        rows = db.query(BaseControl.control_id, BaseControl.title).filter(
-            BaseControl.control_id.in_(control_ids)
-        ).all()
-        for cid, title in rows:
-            names[("control", cid)] = title
+        for c in db.all(BaseControl):
+            if c.control_id in control_ids:
+                names[("control", c.control_id)] = c.title
 
     # Remediation tasks
     rt_ids = by_type.get("remediation_task", set())
     if rt_ids:
-        rows = db.query(RemediationTask.id, RemediationTask.title).filter(
-            RemediationTask.id.in_(rt_ids)
-        ).all()
-        for rid, title in rows:
-            names[("remediation_task", rid)] = title
+        for t in db.list(RemediationTask, account_id):
+            if t.id in rt_ids:
+                names[("remediation_task", t.id)] = t.title
 
     # People tasks
     pt_ids = by_type.get("people_task", set())
     if pt_ids:
-        rows = db.query(PeopleTask.id, PeopleTask.title).filter(
-            PeopleTask.id.in_(pt_ids)
-        ).all()
-        for pid, title in rows:
-            names[("people_task", pid)] = title
+        for t in db.list(PeopleTask, account_id):
+            if t.id in pt_ids:
+                names[("people_task", t.id)] = t.title
 
     # Business processes
     bp_ids = by_type.get("process", set())
     if bp_ids:
-        rows = db.query(BusinessProcess.id, BusinessProcess.name).filter(
-            BusinessProcess.id.in_(bp_ids)
-        ).all()
-        for bid, bname in rows:
-            names[("process", bid)] = bname
+        for bp in db.list(BusinessProcess, account_id):
+            if bp.id in bp_ids:
+                names[("process", bp.id)] = bp.name
 
     # Assessment answers — no separate table with title, use question_id
     for aid in by_type.get("assessment_answer", set()):
@@ -276,11 +264,9 @@ def get_download_url(db: Session, evidence_id: str, account_id: str) -> tuple[st
 
     Returns (url_or_path, filename, is_signed_url) or None if not found.
     """
-    ev = (
-        db.query(Evidence)
-        .filter(Evidence.id == evidence_id, Evidence.account_id == account_id, Evidence.deleted_at.is_(None))
-        .first()
-    )
+    ev = db.get_by_key(Evidence, account_id, id=evidence_id)
+    if ev and ev.deleted_at is not None:
+        ev = None
     if not ev:
         return None
 
@@ -297,11 +283,9 @@ def soft_delete(db: Session, evidence_id: str, account_id: str) -> Evidence | No
     """Soft delete evidence and unlink all active links."""
     from datetime import datetime, timezone
 
-    ev = (
-        db.query(Evidence)
-        .filter(Evidence.id == evidence_id, Evidence.account_id == account_id, Evidence.deleted_at.is_(None))
-        .first()
-    )
+    ev = db.get_by_key(Evidence, account_id, id=evidence_id)
+    if ev and ev.deleted_at is not None:
+        ev = None
     if not ev:
         return None
 
@@ -309,24 +293,18 @@ def soft_delete(db: Session, evidence_id: str, account_id: str) -> Evidence | No
     ev.deleted_at = now
 
     # Unlink all active links
-    db.query(EvidenceLink).filter(
-        EvidenceLink.evidence_id == evidence_id,
-        EvidenceLink.unlinked_at.is_(None),
-    ).update({"unlinked_at": now})
+    for lnk in db.list(EvidenceLink, account_id):
+        if lnk.evidence_id == evidence_id and lnk.unlinked_at is None:
+            lnk.unlinked_at = now
 
-    db.flush()
     return ev
 
 
 def get_tags(db: Session, account_id: str) -> list[str]:
     """Get all distinct tags used in the account."""
-    rows = (
-        db.query(Evidence.tags)
-        .filter(Evidence.account_id == account_id, Evidence.deleted_at.is_(None))
-        .all()
-    )
+    rows = [e.tags for e in db.list(Evidence, account_id) if e.deleted_at is None]
     tag_set: set[str] = set()
-    for (tags_json,) in rows:
+    for tags_json in rows:
         if tags_json:
             try:
                 parsed = json.loads(tags_json)

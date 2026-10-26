@@ -1,11 +1,11 @@
 """CRUD endpoints for business processes and process-control linking (Scoping / SoA)."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 
 from auth import enforce_account_access, get_current_account
-from database import get_db
-from models import Account, BaseControl, BusinessProcess, ProcessControl
+from database import Session, get_db
+from models import Account, BaseControl, BusinessProcess, PeopleTask, ProcessControl
+from store import order_by
 from schemas import (
     BusinessProcessResponse,
     CreateBusinessProcessRequest,
@@ -53,12 +53,7 @@ def list_business_processes(
     db: Session = Depends(get_db),
 ):
     enforce_account_access(account, account_id)
-    rows = (
-        db.query(BusinessProcess)
-        .filter(BusinessProcess.account_id == account_id)
-        .order_by(BusinessProcess.created_at)
-        .all()
-    )
+    rows = order_by(db.list(BusinessProcess, account_id), "created_at")
     return [_bp_to_response(bp) for bp in rows]
 
 
@@ -77,15 +72,11 @@ def get_statement_of_applicability(
     enforce_account_access(account, account_id)
 
     # Get all base controls
-    base_controls = db.query(BaseControl).order_by(BaseControl.display_order).all()
+    base_controls = order_by(db.all(BaseControl), "display_order")
     ctrl_map = {bc.control_id: bc for bc in base_controls}
 
     # Get all process-control links for this account
-    processes = (
-        db.query(BusinessProcess)
-        .filter(BusinessProcess.account_id == account_id)
-        .all()
-    )
+    processes = order_by(db.list(BusinessProcess, account_id), "created_at")
 
     # Build per-control aggregation
     soa: dict[str, SoAEntry] = {}
@@ -151,11 +142,7 @@ def get_business_process(
 ):
     enforce_account_access(account, account_id)
 
-    bp = (
-        db.query(BusinessProcess)
-        .filter(BusinessProcess.id == process_id, BusinessProcess.account_id == account_id)
-        .first()
-    )
+    bp = db.get_by_key(BusinessProcess, account_id, id=process_id)
     if not bp:
         raise HTTPException(status_code=404, detail="Business process not found")
     return _bp_to_response(bp)
@@ -171,11 +158,7 @@ def update_business_process(
 ):
     enforce_account_access(account, account_id)
 
-    bp = (
-        db.query(BusinessProcess)
-        .filter(BusinessProcess.id == process_id, BusinessProcess.account_id == account_id)
-        .first()
-    )
+    bp = db.get_by_key(BusinessProcess, account_id, id=process_id)
     if not bp:
         raise HTTPException(status_code=404, detail="Business process not found")
 
@@ -202,14 +185,14 @@ def delete_business_process(
 ):
     enforce_account_access(account, account_id)
 
-    bp = (
-        db.query(BusinessProcess)
-        .filter(BusinessProcess.id == process_id, BusinessProcess.account_id == account_id)
-        .first()
-    )
+    bp = db.get_by_key(BusinessProcess, account_id, id=process_id)
     if not bp:
         raise HTTPException(status_code=404, detail="Business process not found")
 
+    # people_tasks.related_process_id was ON DELETE SET NULL
+    for task in db.list(PeopleTask, account_id):
+        if task.related_process_id == process_id:
+            task.related_process_id = None
     db.delete(bp)
     db.commit()
 
@@ -233,16 +216,13 @@ def link_controls(
     """Replace the control links for a business process (idempotent PUT)."""
     enforce_account_access(account, account_id)
 
-    bp = (
-        db.query(BusinessProcess)
-        .filter(BusinessProcess.id == process_id, BusinessProcess.account_id == account_id)
-        .first()
-    )
+    bp = db.get_by_key(BusinessProcess, account_id, id=process_id)
     if not bp:
         raise HTTPException(status_code=404, detail="Business process not found")
 
     # Delete existing links and replace
-    db.query(ProcessControl).filter(ProcessControl.business_process_id == process_id).delete()
+    for old in db.list(ProcessControl, process_id):
+        db.delete(old)
 
     new_links = []
     for item in req.controls:
@@ -256,8 +236,6 @@ def link_controls(
         new_links.append(pc)
 
     db.commit()
-    for pc in new_links:
-        db.refresh(pc)
     return [_pc_to_response(pc) for pc in new_links]
 
 

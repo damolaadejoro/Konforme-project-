@@ -2,7 +2,10 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    database_url: str = "sqlite:///./konforme.db"
+    # DynamoDB (endpoint_url: set for DynamoDB Local / moto server in development)
+    dynamodb_table: str = "konforme"
+    dynamodb_region: str = "eu-west-1"
+    dynamodb_endpoint_url: str = ""
     secret_key: str = "change-me"
     allowed_origins: str = "http://localhost:5173,http://localhost:3000"
     konforme_aws_account_id: str = ""
@@ -15,12 +18,12 @@ class Settings(BaseSettings):
     cookie_domain: str = ""
     cookie_secure: bool = True
     cookie_samesite: str = "lax"
-    database_pool_size: int = 5
-    database_max_overflow: int = 10
-    database_pool_timeout: int = 30
     upload_dir: str = "/data/evidence"
     max_upload_size_mb: int = 10
     signup_webhook_url: str = ""
+
+    # Lambda function that runs scans asynchronously (empty = FastAPI BackgroundTasks)
+    worker_function_name: str = ""
 
     # S3 evidence storage (empty bucket = filesystem fallback)
     s3_evidence_bucket: str = ""

@@ -1,12 +1,12 @@
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 
 from assessment_questions import QUESTION_IDS
 from auth import enforce_account_access, get_current_account, get_current_user
-from database import get_db
+from database import Session, get_db
 from models import Account, RemediationPlan, RemediationPlanMilestone, RemediationTask, User
+from store import order_by
 from schemas import (
     BulkDismissRequest,
     CloseTaskRequest,
@@ -116,20 +116,14 @@ def _plan_to_summary(p: RemediationPlan) -> RemediationPlanSummary:
 
 
 def _get_task_or_404(db: Session, account_id: str, task_id: str) -> RemediationTask:
-    task = db.query(RemediationTask).filter(
-        RemediationTask.id == task_id,
-        RemediationTask.account_id == account_id,
-    ).first()
+    task = db.get_by_key(RemediationTask, account_id, id=task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Remediation task not found")
     return task
 
 
 def _get_plan_or_404(db: Session, account_id: str, plan_id: str) -> RemediationPlan:
-    plan = db.query(RemediationPlan).filter(
-        RemediationPlan.id == plan_id,
-        RemediationPlan.account_id == account_id,
-    ).first()
+    plan = db.get_by_key(RemediationPlan, account_id, id=plan_id)
     if not plan:
         raise HTTPException(status_code=404, detail="Remediation plan not found")
     return plan
@@ -169,7 +163,6 @@ def create_remediation_task(
     )
     db.add(task)
     db.commit()
-    db.refresh(task)
 
     return _task_to_response(task)
 
@@ -182,12 +175,7 @@ def list_remediation_tasks(
 ):
     enforce_account_access(account, account_id)
 
-    tasks = (
-        db.query(RemediationTask)
-        .filter(RemediationTask.account_id == account_id)
-        .order_by(RemediationTask.created_at.desc())
-        .all()
-    )
+    tasks = order_by(db.list(RemediationTask, account_id), "created_at", desc=True)
 
     return [_task_to_response(t) for t in tasks]
 
@@ -219,7 +207,6 @@ def update_remediation_task(
         task.due_date = date.fromisoformat(req.due_date)
 
     db.commit()
-    db.refresh(task)
 
     return _task_to_response(task)
 
@@ -248,7 +235,6 @@ def create_plan(
         actor_user_id=user.id, actor_email=user.email,
     )
     db.commit()
-    db.refresh(plan)
     return _plan_to_response(plan)
 
 
@@ -261,10 +247,10 @@ def list_plans(
 ):
     enforce_account_access(account, account_id)
 
-    q = db.query(RemediationPlan).filter(RemediationPlan.account_id == account_id)
+    plans = db.list(RemediationPlan, account_id)
     if status:
-        q = q.filter(RemediationPlan.status == status)
-    plans = q.order_by(RemediationPlan.created_at.desc()).all()
+        plans = [p for p in plans if p.status == status]
+    plans = order_by(plans, "created_at", desc=True)
     return [_plan_to_summary(p) for p in plans]
 
 
@@ -310,7 +296,6 @@ def update_plan(
         actor_email=user.email,
     )
     db.commit()
-    db.refresh(plan)
     return _plan_to_response(plan)
 
 
@@ -337,7 +322,6 @@ def approve_or_reject_plan(
         remediation_service.reject_plan(db, plan, req.rejection_reason, user.id, user.email)
 
     db.commit()
-    db.refresh(plan)
     return _plan_to_response(plan)
 
 
@@ -360,7 +344,6 @@ def add_milestone(
     target = date.fromisoformat(req.target_date) if req.target_date else None
     ms = remediation_service.add_milestone(db, plan, req.title, req.description, target, req.display_order)
     db.commit()
-    db.refresh(ms)
 
     return MilestoneResponse(
         id=ms.id, title=ms.title, description=ms.description,
@@ -381,10 +364,7 @@ def update_milestone_endpoint(
     enforce_account_access(account, account_id)
     _get_plan_or_404(db, account_id, plan_id)
 
-    ms = db.query(RemediationPlanMilestone).filter(
-        RemediationPlanMilestone.id == milestone_id,
-        RemediationPlanMilestone.plan_id == plan_id,
-    ).first()
+    ms = db.get_by_key(RemediationPlanMilestone, plan_id, id=milestone_id)
     if not ms:
         raise HTTPException(status_code=404, detail="Milestone not found")
 
@@ -393,7 +373,6 @@ def update_milestone_endpoint(
         updates["target_date"] = date.fromisoformat(updates["target_date"])
     remediation_service.update_milestone(ms, updates)
     db.commit()
-    db.refresh(ms)
 
     return MilestoneResponse(
         id=ms.id, title=ms.title, description=ms.description,
@@ -414,16 +393,12 @@ def complete_milestone_endpoint(
     enforce_account_access(account, account_id)
     _get_plan_or_404(db, account_id, plan_id)
 
-    ms = db.query(RemediationPlanMilestone).filter(
-        RemediationPlanMilestone.id == milestone_id,
-        RemediationPlanMilestone.plan_id == plan_id,
-    ).first()
+    ms = db.get_by_key(RemediationPlanMilestone, plan_id, id=milestone_id)
     if not ms:
         raise HTTPException(status_code=404, detail="Milestone not found")
 
     remediation_service.complete_milestone(ms)
     db.commit()
-    db.refresh(ms)
 
     return MilestoneResponse(
         id=ms.id, title=ms.title, description=ms.description,
@@ -463,7 +438,6 @@ def close_task(
         actor_email=user.email,
     )
     db.commit()
-    db.refresh(task)
     return _task_to_response(task)
 
 
@@ -488,7 +462,6 @@ def dismiss_task(
         actor_email=user.email,
     )
     db.commit()
-    db.refresh(task)
     return _task_to_response(task)
 
 
@@ -533,5 +506,4 @@ def reschedule_task(
         actor_email=user.email,
     )
     db.commit()
-    db.refresh(task)
     return _task_to_response(task)

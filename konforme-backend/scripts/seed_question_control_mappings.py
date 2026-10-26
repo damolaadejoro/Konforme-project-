@@ -3,7 +3,8 @@
 Questions and controls share NIS2 article tags. This script maps each question
 to the controls that address the same article area.
 
-Idempotent: deletes all rows and re-inserts on every run.
+Idempotent: brings stored mappings in line with MAPPINGS on every run
+(only changed items are written).
 Called on application startup from main.py.
 """
 
@@ -12,8 +13,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy.orm import Session  # noqa: E402
-
+from database import Session  # noqa: E402
 from models import AssessmentQuestionControl  # noqa: E402
 
 # Mapping derived from article alignment between assessment_questions.py and seed_base_controls.py.
@@ -104,14 +104,21 @@ MAPPINGS = [
 
 
 def seed_question_control_mappings(db: Session) -> None:
-    """Delete and re-insert all question-control mappings."""
-    db.query(AssessmentQuestionControl).delete()
+    """Upsert question-control mappings and remove any that were dropped."""
+    existing = {(m.question_id, m.control_id): m for m in db.all(AssessmentQuestionControl)}
 
     for question_id, control_id, weight in MAPPINGS:
-        db.add(AssessmentQuestionControl(
-            question_id=question_id,
-            control_id=control_id,
-            weight=weight,
-        ))
+        mapping = existing.pop((question_id, control_id), None)
+        if mapping is None:
+            db.add(AssessmentQuestionControl(
+                question_id=question_id,
+                control_id=control_id,
+                weight=weight,
+            ))
+        elif mapping.weight != weight:
+            mapping.weight = weight
+
+    for stale in existing.values():
+        db.delete(stale)
 
     db.commit()

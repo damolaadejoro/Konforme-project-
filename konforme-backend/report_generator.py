@@ -17,9 +17,10 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
-from sqlalchemy.orm import Session
+from database import Session
 
 from models import Account, AccountControl, BaseControl, RemediationTask, ScanResult
+from store import newest, order_by
 
 # Brand colors
 NAVY = colors.HexColor("#0D1E3A")
@@ -46,12 +47,8 @@ def _get_article_areas(db: Session, account_id: str) -> list[dict]:
         "j": "HR security & access control",
     }
 
-    controls = (
-        db.query(AccountControl)
-        .filter(AccountControl.account_id == account_id)
-        .all()
-    )
-    base_controls = {bc.control_id: bc for bc in db.query(BaseControl).all()}
+    controls = db.list(AccountControl, account_id)
+    base_controls = {bc.control_id: bc for bc in db.all(BaseControl)}
 
     areas: dict[str, dict] = {}
     for letter, name in AREA_NAMES.items():
@@ -95,20 +92,11 @@ def _get_open_findings(db: Session, account_id: str) -> list[dict]:
     """Get open scan findings (failed checks)."""
     from models import Scan
 
-    scan = (
-        db.query(Scan)
-        .filter(Scan.account_id == account_id, Scan.status == "complete")
-        .order_by(Scan.completed_at.desc())
-        .first()
-    )
+    scan = newest([s for s in db.list(Scan, account_id) if s.status == "complete"], "completed_at")
     if not scan:
         return []
 
-    results = (
-        db.query(ScanResult)
-        .filter(ScanResult.scan_id == scan.id, ScanResult.status == "fail")
-        .all()
-    )
+    results = [r for r in db.list(ScanResult, scan.id) if r.status == "fail"]
     return [
         {
             "severity": (r.severity or "medium").capitalize(),
@@ -122,16 +110,9 @@ def _get_open_findings(db: Session, account_id: str) -> list[dict]:
 
 def _get_open_remediation_tasks(db: Session, account_id: str) -> list[dict]:
     """Get open/in-progress remediation tasks."""
-    tasks = (
-        db.query(RemediationTask)
-        .filter(
-            RemediationTask.account_id == account_id,
-            RemediationTask.status.in_(["open", "in_progress"]),
-        )
-        .order_by(RemediationTask.priority, RemediationTask.due_date)
-        .limit(20)
-        .all()
-    )
+    open_tasks = [t for t in db.list(RemediationTask, account_id) if t.status in ("open", "in_progress")]
+    # ORDER BY priority, due_date LIMIT 20
+    tasks = order_by(order_by(open_tasks, "due_date"), "priority")[:20]
     return [
         {
             "priority": (t.priority or "P2").upper(),

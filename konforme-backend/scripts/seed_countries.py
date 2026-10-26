@@ -346,7 +346,7 @@ def seed_country(db, filepath: Path) -> str:
         return ""
 
     # Upsert country
-    country = db.query(Country).filter(Country.code == code).first()
+    country = db.get_by_key(Country, code=code)
     if not country:
         country = Country(code=code)
         db.add(country)
@@ -366,16 +366,10 @@ def seed_country(db, filepath: Path) -> str:
     country.research_confidence = data.get("transposition_confidence", "medium")
     country.research_notes = "\n".join(data.get("notes", []))
 
-    db.flush()  # Get country.id
-
     # Upsert entity tiers
     tier_data_list = _extract_entity_tiers(data)
     for td in tier_data_list:
-        tier = (
-            db.query(EntityTier)
-            .filter(EntityTier.country_id == country.id, EntityTier.tier_key == td["tier_key"])
-            .first()
-        )
+        tier = db.get_by_key(EntityTier, country.id, tier_key=td["tier_key"])
         if not tier:
             tier = EntityTier(country_id=country.id, tier_key=td["tier_key"])
             db.add(tier)
@@ -388,7 +382,8 @@ def seed_country(db, filepath: Path) -> str:
         tier.penalties = json.dumps(td.get("penalties", {}))
 
     # Replace deadlines (clear existing, re-insert)
-    db.query(CountryDeadline).filter(CountryDeadline.country_id == country.id).delete()
+    for old in db.list(CountryDeadline, country.id):
+        db.delete(old)
     for dd in _extract_deadlines(data):
         deadline = CountryDeadline(
             country_id=country.id,
@@ -429,9 +424,9 @@ def main():
         print(f"\nSeeded {len(seeded)} countries: {', '.join(sorted(seeded))}")
 
         # Verify
-        count = db.query(Country).count()
-        tier_count = db.query(EntityTier).count()
-        deadline_count = db.query(CountryDeadline).count()
+        count = len(db.all(Country))
+        tier_count = len(db.all(EntityTier))
+        deadline_count = len(db.all(CountryDeadline))
         print(f"Database totals: {count} countries, {tier_count} entity tiers, {deadline_count} deadlines")
 
     except Exception as e:

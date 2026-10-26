@@ -1,6 +1,7 @@
 """Seed the base_controls table with 43 NIS2 control definitions.
 
-Idempotent: deletes all rows and re-inserts on every run.
+Idempotent: brings the stored definitions in line with CONTROLS on every run
+(only changed items are written).
 Called on application startup from main.py.
 """
 
@@ -9,8 +10,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy.orm import Session  # noqa: E402
-
+from database import Session  # noqa: E402
 from models import BaseControl  # noqa: E402
 
 CONTROLS = [
@@ -502,7 +502,15 @@ CONTROLS = [
 
 
 def seed_base_controls(db: Session) -> None:
-    """Delete all base controls and re-insert from the canonical list."""
-    db.query(BaseControl).delete()
-    db.add_all([BaseControl(**c) for c in CONTROLS])
+    """Upsert base controls from the canonical list and remove any that were dropped."""
+    existing = {c.control_id: c for c in db.all(BaseControl)}
+    for definition in CONTROLS:
+        control = existing.pop(definition["control_id"], None)
+        if control is None:
+            db.add(BaseControl(**definition))
+        else:
+            for name, value in definition.items():
+                setattr(control, name, value)
+    for stale in existing.values():
+        db.delete(stale)
     db.commit()

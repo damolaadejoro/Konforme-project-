@@ -1,11 +1,20 @@
+"""Konforme data model, stored in DynamoDB (see store.py for the key layout).
+
+Field names match the former PostgreSQL columns. Each class declares:
+    __partition__  (prefix, field) -> PK; field None = one shared reference partition
+    __sort__       fields after the model name in SK (default: id); also enforces
+                   uniqueness for composite keys, like the old UNIQUE constraints
+    __lookups__    GSI attribute -> field, for lookups without knowing the partition
+    __unique__     fields that must be unique across the table (guard items)
+    __onupdate__   timestamp fields refreshed whenever the object changes
+"""
+
 import enum
 import uuid
+from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from database import Base
+from store import next_sequence, session_of
 
 
 class UserRole(str, enum.Enum):
@@ -23,787 +32,713 @@ def _new_uuid() -> str:
     return str(uuid.uuid4())
 
 
-class Account(Base):
-    __tablename__ = "accounts"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    api_key_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    country: Mapped[str | None] = mapped_column(String(2), nullable=True)  # ISO 3166-1 alpha-2
-    language: Mapped[str | None] = mapped_column(String(5), nullable=True, default="en")  # ISO 639-1
-    country_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("countries.id"), nullable=True)
-    entity_tier_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("entity_tiers.id"), nullable=True)
-    scoring_config: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON: {"technical_weight": 0.6, ...}
-    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
-    connected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-
-    aws_accounts: Mapped[list["AwsAccount"]] = relationship(back_populates="account", cascade="all, delete-orphan")
-    scans: Mapped[list["Scan"]] = relationship(back_populates="account", cascade="all, delete-orphan")
-    assessments: Mapped[list["Assessment"]] = relationship(back_populates="account", cascade="all, delete-orphan")
-    evidence_files: Mapped[list["Evidence"]] = relationship(back_populates="account", cascade="all, delete-orphan")
-    users: Mapped[list["User"]] = relationship(back_populates="account", cascade="all, delete-orphan")
+def _next_audit_id() -> int:
+    return next_sequence("AuditLog")
 
 
-class User(Base):
-    __tablename__ = "users"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)  # null for pending invites
-    role: Mapped[str] = mapped_column(String(20), default=UserRole.member.value, nullable=False)
-    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
-    email_verification_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    email_verification_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    invite_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
-    invite_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    invite_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    password_reset_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
-    password_reset_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)
-    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
-
-    account: Mapped["Account"] = relationship(back_populates="users")
+model = dataclass(kw_only=True, eq=False)
 
 
-class CloudCredential(Base):
-    __tablename__ = "cloud_credentials"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.id"), nullable=False, index=True)
-    provider: Mapped[str] = mapped_column(String(20), nullable=False)  # "aws" | "azure"
-    alias: Mapped[str] = mapped_column(String(255), nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+@model
+class Account:
+    __partition__ = ("Account", "id")
+    __sort__ = ()
+    __lookups__ = {"lk_email": "email"}
+    __unique__ = ("email",)
 
-    # AWS fields (encrypted)
-    aws_access_key_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    aws_secret_access_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    aws_session_token: Mapped[str | None] = mapped_column(Text, nullable=True)
-    aws_region: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    aws_account_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    id: str | None = field(default_factory=_new_uuid)
+    name: str | None = None
+    email: str | None = None
+    api_key_hash: str | None = None
+    is_active: bool | None = True
+    country: str | None = None
+    language: str | None = "en"
+    country_id: str | None = None
+    entity_tier_id: str | None = None
+    scoring_config: str | None = None
+    email_verified: bool | None = False
+    connected_at: datetime | None = field(default_factory=_utcnow)
 
-    # AWS cross-account role fields (new secure approach)
-    aws_role_arn: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    aws_external_id: Mapped[str | None] = mapped_column(String(512), nullable=True)  # encrypted
-    aws_connection_type: Mapped[str] = mapped_column(String(20), default="keys")  # "keys" | "role"
-
-    # Azure fields (encrypted)
-    azure_tenant_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    azure_client_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    azure_client_secret: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    azure_subscription_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    azure_connection_type: Mapped[str] = mapped_column(String(20), default="client_secret")  # "client_secret" | "oauth"
-
-    account: Mapped["Account"] = relationship()
-    scans: Mapped[list["Scan"]] = relationship(
-        back_populates="cloud_credential",
-        foreign_keys="[Scan.cloud_credential_id]",
-    )
+    @property
+    def aws_accounts(self) -> list["AwsAccount"]:
+        return session_of(self).list(AwsAccount, self.id)
 
 
-class AwsAccount(Base):
-    __tablename__ = "aws_accounts"
+@model
+class User:
+    __partition__ = ("Account", "account_id")
+    __lookups__ = {"lk_email": "email", "lk_token": "invite_token", "lk_verify": "email_verification_token", "lk_reset": "password_reset_token"}
+    __unique__ = ("email",)
+    __onupdate__ = ("updated_at",)
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.id"), nullable=False)
-    alias: Mapped[str] = mapped_column(String(255), nullable=False)
-    aws_access_key_id: Mapped[str] = mapped_column(String(512), nullable=False)
-    aws_secret_access_key: Mapped[str] = mapped_column(String(512), nullable=False)
-    aws_session_token: Mapped[str | None] = mapped_column(Text, nullable=True)
-    aws_region: Mapped[str] = mapped_column(String(50), default="eu-west-1")
-    aws_account_id: Mapped[str] = mapped_column(String(20), nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-
-    account: Mapped["Account"] = relationship(back_populates="aws_accounts")
-    scans: Mapped[list["Scan"]] = relationship(back_populates="aws_account")
-
-
-class Scan(Base):
-    __tablename__ = "scans"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.id"), nullable=False, index=True)
-    aws_account_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("aws_accounts.id"), nullable=True)
-    cloud_credential_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("cloud_credentials.id"), nullable=True, index=True)
-    provider: Mapped[str] = mapped_column(String(20), default="aws")  # "aws" | "azure"
-    status: Mapped[str] = mapped_column(
-        Enum("queued", "running", "complete", "error", name="scan_status"),
-        default="queued",
-        index=True,
-    )
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    overall_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    total_checks: Mapped[int] = mapped_column(Integer, default=0)
-    passed: Mapped[int] = mapped_column(Integer, default=0)
-    failed: Mapped[int] = mapped_column(Integer, default=0)
-    critical_count: Mapped[int] = mapped_column(Integer, default=0)
-    high_count: Mapped[int] = mapped_column(Integer, default=0)
-    medium_count: Mapped[int] = mapped_column(Integer, default=0)
-    low_count: Mapped[int] = mapped_column(Integer, default=0)
-
-    account: Mapped["Account"] = relationship(back_populates="scans")
-    aws_account: Mapped["AwsAccount | None"] = relationship(back_populates="scans")
-    cloud_credential: Mapped["CloudCredential | None"] = relationship(
-        back_populates="scans",
-        foreign_keys=[cloud_credential_id],
-    )
-    results: Mapped[list["ScanResult"]] = relationship(back_populates="scan", cascade="all, delete-orphan")
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    name: str | None = None
+    email: str | None = None
+    password_hash: str | None = None
+    role: str | None = "member"
+    email_verified: bool | None = False
+    email_verification_token: str | None = None
+    email_verification_expires: datetime | None = None
+    invite_token: str | None = None
+    invite_expires: datetime | None = None
+    invite_accepted_at: datetime | None = None
+    password_reset_token: str | None = None
+    password_reset_expires: datetime | None = None
+    is_active: bool | None = True
+    failed_login_attempts: int | None = 0
+    locked_until: datetime | None = None
+    created_at: datetime | None = field(default_factory=_utcnow)
+    updated_at: datetime | None = field(default_factory=_utcnow)
 
 
-class ScanResult(Base):
-    __tablename__ = "scan_results"
+@model
+class CloudCredential:
+    __partition__ = ("Account", "account_id")
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    scan_id: Mapped[str] = mapped_column(String(36), ForeignKey("scans.id"), nullable=False, index=True)
-    check_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    nis2_article: Mapped[str] = mapped_column(String(50), nullable=False)
-    nis2_requirement: Mapped[str] = mapped_column(String(255), nullable=False)
-    status: Mapped[str] = mapped_column(
-        Enum("pass", "fail", "warn", "info", name="check_status"),
-        nullable=False,
-    )
-    severity: Mapped[str] = mapped_column(String(20), nullable=False)
-    title: Mapped[str] = mapped_column(String(500), nullable=False)
-    message: Mapped[str] = mapped_column(Text, nullable=False)
-    remediation: Mapped[str] = mapped_column(Text, default="")
-    remediation_steps: Mapped[str] = mapped_column(Text, default="")  # JSON list
-    resource: Mapped[str] = mapped_column(String(500), default="")
-
-    scan: Mapped["Scan"] = relationship(back_populates="results")
-
-
-class Assessment(Base):
-    __tablename__ = "assessments"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.id"), nullable=False)
-    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    human_score: Mapped[float] = mapped_column(Float, nullable=False)
-    responses: Mapped[str] = mapped_column(Text, nullable=False)  # JSON string
-
-    account: Mapped["Account"] = relationship(back_populates="assessments")
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    provider: str | None = None
+    alias: str | None = None
+    is_active: bool | None = True
+    added_at: datetime | None = field(default_factory=_utcnow)
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_session_token: str | None = None
+    aws_region: str | None = None
+    aws_account_id: str | None = None
+    aws_role_arn: str | None = None
+    aws_external_id: str | None = None
+    aws_connection_type: str | None = "keys"
+    azure_tenant_id: str | None = None
+    azure_client_id: str | None = None
+    azure_client_secret: str | None = None
+    azure_subscription_id: str | None = None
+    azure_connection_type: str | None = "client_secret"
 
 
-class AssessmentVersion(Base):
-    __tablename__ = "assessment_versions"
+@model
+class AwsAccount:
+    __partition__ = ("Account", "account_id")
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.id"), nullable=False, index=True)
-    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    overall_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    status: Mapped[str] = mapped_column(
-        Enum("draft", "submitted", name="assessment_version_status"),
-        default="draft",
-    )
-
-    account: Mapped["Account"] = relationship()
-    responses: Mapped[list["AssessmentResponse"]] = relationship(
-        back_populates="assessment_version", cascade="all, delete-orphan"
-    )
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    alias: str | None = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_session_token: str | None = None
+    aws_region: str | None = "eu-west-1"
+    aws_account_id: str | None = None
+    is_active: bool | None = True
+    added_at: datetime | None = field(default_factory=_utcnow)
 
 
-class AssessmentResponse(Base):
-    __tablename__ = "assessment_responses"
+@model
+class Scan:
+    __partition__ = ("Account", "account_id")
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    assessment_version_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("assessment_versions.id"), nullable=False
-    )
-    question_id: Mapped[str] = mapped_column(String(50), nullable=False)
-    maturity_level: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 0-4 or null for N/A
-    notes: Mapped[str] = mapped_column(Text, default="")
-    evidence_refs: Mapped[str] = mapped_column(Text, default="[]")  # JSON array
-    answered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    aws_account_id: str | None = None
+    cloud_credential_id: str | None = None
+    provider: str | None = "aws"
+    status: str | None = "queued"
+    started_at: datetime | None = field(default_factory=_utcnow)
+    completed_at: datetime | None = None
+    overall_score: float | None = None
+    total_checks: int | None = 0
+    passed: int | None = 0
+    failed: int | None = 0
+    critical_count: int | None = 0
+    high_count: int | None = 0
+    medium_count: int | None = 0
+    low_count: int | None = 0
 
-    assessment_version: Mapped["AssessmentVersion"] = relationship(back_populates="responses")
-
-
-class Evidence(Base):
-    __tablename__ = "evidence"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.id"), nullable=False, index=True)
-    control_id: Mapped[str | None] = mapped_column(String(100), nullable=True)  # legacy, nullable for new uploads
-    filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    stored_filename: Mapped[str] = mapped_column(String(500), nullable=False)
-    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
-    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
-    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    uploaded_by: Mapped[str] = mapped_column(String(255), nullable=False)
-
-    # Phase 2 additions
-    s3_key: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    description: Mapped[str] = mapped_column(Text, default="")
-    tags: Mapped[str] = mapped_column(Text, default="[]")  # JSON array
-    retention_until: Mapped[datetime | None] = mapped_column(Date, nullable=True)
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    uploaded_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
-
-    account: Mapped["Account"] = relationship(back_populates="evidence_files")
-    links: Mapped[list["EvidenceLink"]] = relationship(back_populates="evidence", cascade="all, delete-orphan")
+    @property
+    def aws_account(self) -> "AwsAccount | None":
+        if not self.aws_account_id:
+            return None
+        return session_of(self).get_by_key(AwsAccount, self.account_id, id=self.aws_account_id)
 
 
-class RemediationPlan(Base):
+@model
+class ScanResult:
+    __partition__ = ("Scan", "scan_id")
+
+    id: str | None = field(default_factory=_new_uuid)
+    scan_id: str | None = None
+    check_id: str | None = None
+    nis2_article: str | None = None
+    nis2_requirement: str | None = None
+    status: str | None = None
+    severity: str | None = None
+    title: str | None = None
+    message: str | None = None
+    remediation: str | None = ""
+    remediation_steps: str | None = ""
+    resource: str | None = ""
+
+
+@model
+class Assessment:
+    __partition__ = ("Account", "account_id")
+
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    submitted_at: datetime | None = field(default_factory=_utcnow)
+    human_score: float | None = None
+    responses: str | None = None
+
+
+@model
+class AssessmentVersion:
+    __partition__ = ("Account", "account_id")
+
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    version: int | None = 1
+    submitted_at: datetime | None = field(default_factory=_utcnow)
+    overall_score: float | None = None
+    status: str | None = "draft"
+
+    @property
+    def responses(self) -> list["AssessmentResponse"]:
+        return session_of(self).list(AssessmentResponse, self.id)
+
+
+@model
+class AssessmentResponse:
+    __partition__ = ("AssessmentVersion", "assessment_version_id")
+
+    id: str | None = field(default_factory=_new_uuid)
+    assessment_version_id: str | None = None
+    question_id: str | None = None
+    maturity_level: int | None = None
+    notes: str | None = ""
+    evidence_refs: str | None = "[]"
+    answered_at: datetime | None = field(default_factory=_utcnow)
+
+
+@model
+class Evidence:
+    __partition__ = ("Account", "account_id")
+
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    control_id: str | None = None
+    filename: str | None = None
+    stored_filename: str | None = None
+    file_size: int | None = None
+    content_type: str | None = None
+    uploaded_at: datetime | None = field(default_factory=_utcnow)
+    uploaded_by: str | None = None
+    s3_key: str | None = None
+    sha256: str | None = None
+    description: str | None = ""
+    tags: str | None = "[]"
+    retention_until: date | None = None
+    deleted_at: datetime | None = None
+    uploaded_by_user_id: str | None = None
+
+    @property
+    def links(self) -> list["EvidenceLink"]:
+        return [lnk for lnk in session_of(self).list(EvidenceLink, self.account_id) if lnk.evidence_id == self.id]
+
+
+@model
+class RemediationPlan:
     """Narrative treatment plan wrapping one or more remediation tasks."""
-    __tablename__ = "remediation_plans"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    title: Mapped[str] = mapped_column(String(500), nullable=False)
-    description: Mapped[str] = mapped_column(Text, default="")
-    treatment_type: Mapped[str] = mapped_column(String(20), nullable=False, default="mitigate")  # mitigate|transfer|avoid|accept
-    status: Mapped[str] = mapped_column(
-        String(30), default="draft",  # draft|pending_approval|approved|in_progress|completed|rejected
-    )
-    target_date: Mapped[datetime | None] = mapped_column(Date, nullable=True)
-    created_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
-    approved_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
-    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    rejected_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
-    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+    __partition__ = ("Account", "account_id")
+    __onupdate__ = ("updated_at",)
 
-    account: Mapped["Account"] = relationship()
-    milestones: Mapped[list["RemediationPlanMilestone"]] = relationship(
-        back_populates="plan", cascade="all, delete-orphan"
-    )
-    links: Mapped[list["RemediationPlanLink"]] = relationship(
-        back_populates="plan", cascade="all, delete-orphan"
-    )
-    tasks: Mapped[list["RemediationTask"]] = relationship(back_populates="plan")
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    title: str | None = None
+    description: str | None = ""
+    treatment_type: str | None = "mitigate"
+    status: str | None = "draft"
+    target_date: date | None = None
+    created_by_user_id: str | None = None
+    approved_by_user_id: str | None = None
+    approved_at: datetime | None = None
+    rejected_by_user_id: str | None = None
+    rejected_at: datetime | None = None
+    rejection_reason: str | None = None
+    created_at: datetime | None = field(default_factory=_utcnow)
+    updated_at: datetime | None = field(default_factory=_utcnow)
+
+    @property
+    def milestones(self) -> list["RemediationPlanMilestone"]:
+        return session_of(self).list(RemediationPlanMilestone, self.id)
+
+    @property
+    def links(self) -> list["RemediationPlanLink"]:
+        return session_of(self).list(RemediationPlanLink, self.id)
+
+    @property
+    def tasks(self) -> list["RemediationTask"]:
+        return [t for t in session_of(self).list(RemediationTask, self.account_id) if t.plan_id == self.id]
 
 
-class RemediationPlanMilestone(Base):
+@model
+class RemediationPlanMilestone:
     """Progress checkpoint within a remediation plan."""
-    __tablename__ = "remediation_plan_milestones"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    plan_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("remediation_plans.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    title: Mapped[str] = mapped_column(String(500), nullable=False)
-    description: Mapped[str] = mapped_column(Text, default="")
-    target_date: Mapped[datetime | None] = mapped_column(Date, nullable=True)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    display_order: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    __partition__ = ("RemediationPlan", "plan_id")
 
-    plan: Mapped["RemediationPlan"] = relationship(back_populates="milestones")
+    id: str | None = field(default_factory=_new_uuid)
+    plan_id: str | None = None
+    title: str | None = None
+    description: str | None = ""
+    target_date: date | None = None
+    completed_at: datetime | None = None
+    display_order: int | None = 0
+    created_at: datetime | None = field(default_factory=_utcnow)
 
 
-class RemediationPlanLink(Base):
+@model
+class RemediationPlanLink:
     """Connects a plan to controls, questions, or processes."""
-    __tablename__ = "remediation_plan_links"
-    __table_args__ = (
-        UniqueConstraint("plan_id", "entity_type", "entity_id", name="uq_plan_links_plan_entity"),
-    )
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    plan_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("remediation_plans.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)  # control|question|process
-    entity_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    __partition__ = ("RemediationPlan", "plan_id")
+    __sort__ = ("entity_type", "entity_id")
 
-    plan: Mapped["RemediationPlan"] = relationship(back_populates="links")
+    id: str | None = field(default_factory=_new_uuid)
+    plan_id: str | None = None
+    entity_type: str | None = None
+    entity_id: str | None = None
+    created_at: datetime | None = field(default_factory=_utcnow)
 
 
-class RemediationTask(Base):
-    __tablename__ = "remediation_tasks"
+@model
+class RemediationTask:
+    __partition__ = ("Account", "account_id")
+    __onupdate__ = ("updated_at",)
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.id"), nullable=False, index=True)
-    question_id: Mapped[str] = mapped_column(String(50), nullable=False)
-    title: Mapped[str] = mapped_column(String(500), nullable=False)
-    description: Mapped[str] = mapped_column(Text, default="")
-    status: Mapped[str] = mapped_column(
-        Enum("open", "in_progress", "completed", "dismissed", name="remediation_status"),
-        default="open",
-    )
-    priority: Mapped[str] = mapped_column(String(20), default="medium")
-    assigned_to: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    due_date: Mapped[datetime | None] = mapped_column(Date, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-    # Phase 3 additions
-    plan_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("remediation_plans.id", ondelete="SET NULL"), nullable=True, index=True
-    )
-    related_control_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    related_assessment_answer_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    severity: Mapped[str] = mapped_column(String(20), default="medium")
-    auto_generated: Mapped[bool] = mapped_column(Boolean, default=False)
-    closure_evidence_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("evidence.id", ondelete="SET NULL"), nullable=True
-    )
-    closure_note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    closed_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
-    dismissed_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    dismissed_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
-    dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    original_due_date: Mapped[datetime | None] = mapped_column(Date, nullable=True)
-    reschedule_count: Mapped[int] = mapped_column(Integer, default=0)
-
-    account: Mapped["Account"] = relationship()
-    plan: Mapped["RemediationPlan | None"] = relationship(back_populates="tasks")
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    question_id: str | None = None
+    title: str | None = None
+    description: str | None = ""
+    status: str | None = "open"
+    priority: str | None = "medium"
+    assigned_to: str | None = None
+    due_date: date | None = None
+    created_at: datetime | None = field(default_factory=_utcnow)
+    updated_at: datetime | None = field(default_factory=_utcnow)
+    completed_at: datetime | None = None
+    plan_id: str | None = None
+    related_control_id: str | None = None
+    related_assessment_answer_id: str | None = None
+    severity: str | None = "medium"
+    auto_generated: bool | None = False
+    closure_evidence_id: str | None = None
+    closure_note: str | None = None
+    closed_by_user_id: str | None = None
+    dismissed_reason: str | None = None
+    dismissed_by_user_id: str | None = None
+    dismissed_at: datetime | None = None
+    original_due_date: date | None = None
+    reschedule_count: int | None = 0
 
 
-# --- Country-specific NIS2 tables ---
+@model
+class Country:
+    __partition__ = ("Ref", None)
+    __sort__ = ("code",)
+    __onupdate__ = ("updated_at",)
+
+    id: str | None = field(default_factory=_new_uuid)
+    code: str | None = None
+    name: str | None = None
+    name_local: str | None = None
+    transposition_status: str | None = "unknown"
+    transposition_law_name: str | None = None
+    transposition_law_reference: str | None = None
+    transposition_law_url: str | None = None
+    date_published: date | None = None
+    date_effective: date | None = None
+    competent_authority_name: str | None = None
+    competent_authority_url: str | None = None
+    csirt_name: str | None = None
+    csirt_url: str | None = None
+    research_confidence: str | None = None
+    research_notes: str | None = None
+    created_at: datetime | None = field(default_factory=_utcnow)
+    updated_at: datetime | None = field(default_factory=_utcnow)
+
+    @property
+    def tiers(self) -> list["EntityTier"]:
+        return session_of(self).list(EntityTier, self.id)
+
+    @property
+    def controls(self) -> list["CountryControl"]:
+        return session_of(self).list(CountryControl, self.id)
+
+    @property
+    def deadlines(self) -> list["CountryDeadline"]:
+        return session_of(self).list(CountryDeadline, self.id)
+
+    @property
+    def assessment_questions(self) -> list["CountryAssessmentQuestion"]:
+        return session_of(self).list(CountryAssessmentQuestion, self.id)
 
 
-class Country(Base):
-    __tablename__ = "countries"
+@model
+class EntityTier:
+    __partition__ = ("Country", "country_id")
+    __sort__ = ("tier_key",)
+    __onupdate__ = ("updated_at",)
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    code: Mapped[str] = mapped_column(String(2), unique=True, nullable=False, index=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    name_local: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    transposition_status: Mapped[str] = mapped_column(String(20), nullable=False, default="unknown")
-    transposition_law_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    transposition_law_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    transposition_law_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    date_published: Mapped[str | None] = mapped_column(Date, nullable=True)
-    date_effective: Mapped[str | None] = mapped_column(Date, nullable=True)
-    competent_authority_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    competent_authority_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    csirt_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    csirt_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    research_confidence: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    research_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
-
-    tiers: Mapped[list["EntityTier"]] = relationship(back_populates="country", cascade="all, delete-orphan")
-    controls: Mapped[list["CountryControl"]] = relationship(back_populates="country", cascade="all, delete-orphan")
-    deadlines: Mapped[list["CountryDeadline"]] = relationship(back_populates="country", cascade="all, delete-orphan")
-    assessment_questions: Mapped[list["CountryAssessmentQuestion"]] = relationship(
-        back_populates="country", cascade="all, delete-orphan"
-    )
+    id: str | None = field(default_factory=_new_uuid)
+    country_id: str | None = None
+    tier_key: str | None = None
+    local_name: str | None = None
+    description: str | None = None
+    sectors: str | None = "[]"
+    size_thresholds: str | None = "{}"
+    obligations: str | None = "{}"
+    penalties: str | None = "{}"
+    created_at: datetime | None = field(default_factory=_utcnow)
+    updated_at: datetime | None = field(default_factory=_utcnow)
 
 
-class EntityTier(Base):
-    __tablename__ = "entity_tiers"
-    __table_args__ = (UniqueConstraint("country_id", "tier_key", name="uq_entity_tiers_country_tier"),)
+@model
+class CountryControl:
+    __partition__ = ("Country", "country_id")
+    __sort__ = ("control_id",)
+    __onupdate__ = ("updated_at",)
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    country_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("countries.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    tier_key: Mapped[str] = mapped_column(String(50), nullable=False)
-    local_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    sectors: Mapped[str] = mapped_column(Text, default="[]")  # JSON array
-    size_thresholds: Mapped[str] = mapped_column(Text, default="{}")  # JSON object
-    obligations: Mapped[str] = mapped_column(Text, default="{}")  # JSON object
-    penalties: Mapped[str] = mapped_column(Text, default="{}")  # JSON object
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
-
-    country: Mapped["Country"] = relationship(back_populates="tiers")
-
-
-class CountryControl(Base):
-    __tablename__ = "country_controls"
-    __table_args__ = (UniqueConstraint("country_id", "control_id", name="uq_country_controls_country_control"),)
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    country_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("countries.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    control_id: Mapped[str] = mapped_column(String(50), nullable=False)
-    eu_article: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    national_legal_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    national_specification: Mapped[str | None] = mapped_column(Text, nullable=True)
-    goes_beyond_eu: Mapped[bool] = mapped_column(Boolean, default=False)
-    applies_to_tiers: Mapped[str] = mapped_column(Text, default='["essential", "important"]')  # JSON array
-    additional_requirements: Mapped[str] = mapped_column(Text, default="[]")  # JSON array
-    is_mandatory: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
-
-    country: Mapped["Country"] = relationship(back_populates="controls")
+    id: str | None = field(default_factory=_new_uuid)
+    country_id: str | None = None
+    control_id: str | None = None
+    eu_article: str | None = None
+    national_legal_reference: str | None = None
+    national_specification: str | None = None
+    goes_beyond_eu: bool | None = False
+    applies_to_tiers: str | None = '["essential", "important"]'
+    additional_requirements: str | None = "[]"
+    is_mandatory: bool | None = True
+    created_at: datetime | None = field(default_factory=_utcnow)
+    updated_at: datetime | None = field(default_factory=_utcnow)
 
 
-class CountryDeadline(Base):
-    __tablename__ = "country_deadlines"
+@model
+class CountryDeadline:
+    __partition__ = ("Country", "country_id")
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    country_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("countries.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    deadline_date: Mapped[str] = mapped_column(Date, nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    applies_to_tiers: Mapped[str] = mapped_column(Text, default="[]")  # JSON array
-    legal_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-
-    country: Mapped["Country"] = relationship(back_populates="deadlines")
+    id: str | None = field(default_factory=_new_uuid)
+    country_id: str | None = None
+    deadline_date: date | None = None
+    description: str | None = None
+    applies_to_tiers: str | None = "[]"
+    legal_reference: str | None = None
+    created_at: datetime | None = field(default_factory=_utcnow)
 
 
-class CountryAssessmentQuestion(Base):
-    __tablename__ = "country_assessment_questions"
-    __table_args__ = (
-        UniqueConstraint("country_id", "base_question_id", name="uq_country_aq_country_question"),
-    )
+@model
+class CountryAssessmentQuestion:
+    __partition__ = ("Country", "country_id")
+    __onupdate__ = ("updated_at",)
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    country_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("countries.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    base_question_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    question_text: Mapped[str] = mapped_column(Text, nullable=False)
-    help_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    eu_article: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    national_legal_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    applies_to_tiers: Mapped[str] = mapped_column(Text, default='["essential", "important"]')  # JSON array
-    domain: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    weight: Mapped[float] = mapped_column(Float, default=1.0)
-    is_additional: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
-
-    country: Mapped["Country"] = relationship(back_populates="assessment_questions")
+    id: str | None = field(default_factory=_new_uuid)
+    country_id: str | None = None
+    base_question_id: str | None = None
+    question_text: str | None = None
+    help_text: str | None = None
+    eu_article: str | None = None
+    national_legal_reference: str | None = None
+    applies_to_tiers: str | None = '["essential", "important"]'
+    domain: str | None = None
+    weight: float | None = 1.0
+    is_additional: bool | None = False
+    created_at: datetime | None = field(default_factory=_utcnow)
+    updated_at: datetime | None = field(default_factory=_utcnow)
 
 
-# --- Per-account control state ---
+@model
+class BaseControl:
+    __partition__ = ("Ref", None)
+    __sort__ = ("control_id",)
+
+    id: str | None = field(default_factory=_new_uuid)
+    control_id: str | None = None
+    title: str | None = None
+    description: str | None = None
+    article: str | None = None
+    article_area: str | None = None
+    category: str | None = None
+    severity: str | None = None
+    is_people_control: bool | None = False
+    display_order: int | None = 0
+    created_at: datetime | None = field(default_factory=_utcnow)
 
 
-class BaseControl(Base):
-    __tablename__ = "base_controls"
+@model
+class AccountControl:
+    __partition__ = ("Account", "account_id")
+    __sort__ = ("control_id",)
+    __onupdate__ = ("last_updated",)
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    control_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    title: Mapped[str] = mapped_column(String(500), nullable=False)
-    description: Mapped[str] = mapped_column(Text, nullable=False)
-    article: Mapped[str] = mapped_column(String(50), nullable=False)
-    article_area: Mapped[str] = mapped_column(String(100), nullable=False)
-    category: Mapped[str] = mapped_column(String(50), nullable=False)
-    severity: Mapped[str] = mapped_column(String(20), nullable=False)
-    is_people_control: Mapped[bool] = mapped_column(Boolean, default=False)
-    display_order: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-
-
-class AccountControl(Base):
-    __tablename__ = "account_controls"
-    __table_args__ = (
-        UniqueConstraint("account_id", "control_id", name="uq_account_controls_account_control"),
-    )
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    control_id: Mapped[str] = mapped_column(String(100), nullable=False)  # e.g. "ctrl-001"
-    status: Mapped[str] = mapped_column(String(20), default="Not Started")
-    owner: Mapped[str] = mapped_column(String(255), default="")
-    due_date: Mapped[str | None] = mapped_column(Date, nullable=True)
-    notes: Mapped[str] = mapped_column(Text, default="")
-    is_country_specific: Mapped[bool] = mapped_column(Boolean, default=False)
-    last_updated: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
-
-    account: Mapped["Account"] = relationship()
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    control_id: str | None = None
+    status: str | None = "Not Started"
+    owner: str | None = ""
+    due_date: date | None = None
+    notes: str | None = ""
+    is_country_specific: bool | None = False
+    last_updated: datetime | None = field(default_factory=_utcnow)
 
 
-class ControlCampaign(Base):
-    __tablename__ = "control_campaigns"
+@model
+class ControlCampaign:
+    __partition__ = ("Account", "account_id")
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    control_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    control_name: Mapped[str] = mapped_column(String(500), nullable=False)
-    task_type: Mapped[str] = mapped_column(String(20), nullable=False)  # acknowledge | quiz
-    deadline: Mapped[str] = mapped_column(String(20), nullable=False)
-    policy_content: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    control_id: str | None = None
+    control_name: str | None = None
+    task_type: str | None = None
+    deadline: str | None = None
+    policy_content: str | None = None
+    created_at: datetime | None = field(default_factory=_utcnow)
 
-    account: Mapped["Account"] = relationship()
-    tasks: Mapped[list["CampaignTask"]] = relationship(
-        back_populates="campaign", cascade="all, delete-orphan"
-    )
+    @property
+    def tasks(self) -> list["CampaignTask"]:
+        return session_of(self).list(CampaignTask, self.id)
 
 
-class CampaignTask(Base):
-    __tablename__ = "campaign_tasks"
+@model
+class CampaignTask:
+    __partition__ = ("ControlCampaign", "campaign_id")
+    __lookups__ = {"lk_token": "completion_token"}
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    campaign_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("control_campaigns.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    control_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    employee_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    employee_email: Mapped[str] = mapped_column(String(255), nullable=False)
-    department: Mapped[str] = mapped_column(String(255), default="")
-    task_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default="pending")
-    sent_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    completed_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    deadline: Mapped[str] = mapped_column(String(20), nullable=False)
-    score: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    completion_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
-
-    campaign: Mapped["ControlCampaign"] = relationship(back_populates="tasks")
+    id: str | None = field(default_factory=_new_uuid)
+    campaign_id: str | None = None
+    control_id: str | None = None
+    employee_name: str | None = None
+    employee_email: str | None = None
+    department: str | None = ""
+    task_type: str | None = None
+    status: str | None = "pending"
+    sent_date: datetime | None = field(default_factory=_utcnow)
+    completed_date: datetime | None = None
+    deadline: str | None = None
+    score: int | None = None
+    completion_token: str | None = None
 
 
-class BusinessProcess(Base):
+@model
+class BusinessProcess:
     """A critical business process scoped by the account for NIS2 compliance."""
-    __tablename__ = "business_processes"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str] = mapped_column(Text, default="")
-    is_critical: Mapped[bool] = mapped_column(Boolean, default=True)
-    owner: Mapped[str] = mapped_column(String(255), default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+    __partition__ = ("Account", "account_id")
+    __onupdate__ = ("updated_at",)
 
-    account: Mapped["Account"] = relationship()
-    process_controls: Mapped[list["ProcessControl"]] = relationship(
-        back_populates="business_process", cascade="all, delete-orphan"
-    )
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    name: str | None = None
+    description: str | None = ""
+    is_critical: bool | None = True
+    owner: str | None = ""
+    created_at: datetime | None = field(default_factory=_utcnow)
+    updated_at: datetime | None = field(default_factory=_utcnow)
+
+    @property
+    def process_controls(self) -> list["ProcessControl"]:
+        return session_of(self).list(ProcessControl, self.id)
 
 
-class ProcessControl(Base):
+@model
+class ProcessControl:
     """Many-to-many link between business processes and controls with applicability metadata."""
-    __tablename__ = "process_controls"
-    __table_args__ = (
-        UniqueConstraint("business_process_id", "control_id", name="uq_process_controls_bp_ctrl"),
-    )
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    business_process_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("business_processes.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    control_id: Mapped[str] = mapped_column(String(100), nullable=False)  # e.g. "ctrl-001"
-    applicable: Mapped[bool] = mapped_column(Boolean, default=True)
-    justification: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    __partition__ = ("BusinessProcess", "business_process_id")
+    __sort__ = ("control_id",)
 
-    business_process: Mapped["BusinessProcess"] = relationship(back_populates="process_controls")
+    id: str | None = field(default_factory=_new_uuid)
+    business_process_id: str | None = None
+    control_id: str | None = None
+    applicable: bool | None = True
+    justification: str | None = ""
+    created_at: datetime | None = field(default_factory=_utcnow)
 
 
-class OAuthState(Base):
+@model
+class OAuthState:
     """Temporary state for OAuth2 flows (e.g. Azure admin consent)."""
-    __tablename__ = "oauth_states"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    state_token: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
-    provider: Mapped[str] = mapped_column(String(20), nullable=False)  # "azure"
-    alias: Mapped[str] = mapped_column(String(255), nullable=False)
-    subscription_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    __partition__ = ("Account", "account_id")
+    __lookups__ = {"lk_token": "state_token"}
 
-
-# --- Phase 2: Evidence links, assessment-control mapping, audit log ---
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    state_token: str | None = None
+    provider: str | None = None
+    alias: str | None = None
+    subscription_id: str | None = None
+    created_at: datetime | None = field(default_factory=_utcnow)
+    expires_at: datetime | None = None
 
 
-class EvidenceLink(Base):
-    """Polymorphic link between an evidence file and any compliance entity."""
-    __tablename__ = "evidence_links"
-    __table_args__ = (
-        UniqueConstraint("evidence_id", "entity_type", "entity_id", name="uq_evidence_links_active"),
-    )
+@model
+class EvidenceLink:
+    """Polymorphic link between an evidence file and any compliance entity.
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    evidence_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("evidence.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)  # assessment_answer, control, remediation_task, people_task, process
-    entity_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    link_type: Mapped[str] = mapped_column(String(20), default="primary")  # primary, supporting, closure, working, scope
-    linked_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
-    linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    unlinked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    Stored in the account partition (account_id copied from the evidence) so
+    "evidence linked to entity X" is one query rather than one per evidence file.
+    """
 
-    evidence: Mapped["Evidence"] = relationship(back_populates="links")
+    __partition__ = ("Account", "account_id")
+    __sort__ = ("evidence_id", "entity_type", "entity_id")
+
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    evidence_id: str | None = None
+    entity_type: str | None = None
+    entity_id: str | None = None
+    link_type: str | None = "primary"
+    linked_by_user_id: str | None = None
+    linked_at: datetime | None = field(default_factory=_utcnow)
+    unlinked_at: datetime | None = None
 
 
-class AssessmentQuestionControl(Base):
+@model
+class AssessmentQuestionControl:
     """Mapping between assessment questions and controls with weight."""
-    __tablename__ = "assessment_question_controls"
-    __table_args__ = (
-        UniqueConstraint("question_id", "control_id", name="uq_aqc_question_control"),
-    )
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    question_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    control_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    weight: Mapped[float] = mapped_column(Float, default=1.0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    __partition__ = ("Ref", None)
+    __sort__ = ("question_id", "control_id")
+
+    id: str | None = field(default_factory=_new_uuid)
+    question_id: str | None = None
+    control_id: str | None = None
+    weight: float | None = 1.0
+    created_at: datetime | None = field(default_factory=_utcnow)
 
 
-class AuditLog(Base):
+@model
+class AuditLog:
     """Tamper-evident audit trail for all compliance-relevant actions."""
-    __tablename__ = "audit_log"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    account_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("accounts.id"), nullable=True, index=True)
-    event_type: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
-    event_category: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    actor_user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    actor_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    actor_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
-    entity_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    entity_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    entity_label: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    correlation_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
-    before_state: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
-    after_state: Mapped[str | None] = mapped_column(Text, nullable=True)   # JSON
-    change_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    is_material: Mapped[bool] = mapped_column(Boolean, default=False)
-    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
-    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
-    hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    __partition__ = ("AuditLog", "account_id")
+
+    id: int | None = field(default_factory=_next_audit_id)
+    account_id: str | None = None
+    event_type: str | None = None
+    event_category: str | None = None
+    actor_user_id: str | None = None
+    actor_email: str | None = None
+    actor_ip: str | None = None
+    entity_type: str | None = None
+    entity_id: str | None = None
+    entity_label: str | None = None
+    correlation_id: str | None = None
+    before_state: str | None = None
+    after_state: str | None = None
+    change_reason: str | None = None
+    is_material: bool | None = False
+    metadata_json: str | None = None
+    occurred_at: datetime | None = field(default_factory=_utcnow)
+    hash: str | None = None
+    prev_hash: str | None = None
 
 
-class PendingPeopleTaskInstantiation(Base):
+@model
+class PendingPeopleTaskInstantiation:
     """Queue for Phase 4: people-control task instantiation from closed remediation tasks."""
-    __tablename__ = "pending_people_task_instantiations"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    control_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    task_type: Mapped[str] = mapped_column(String(20), nullable=False, default="acknowledge")  # acknowledge|quiz
-    source_plan_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("remediation_plans.id"), nullable=True)
-    source_task_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("remediation_tasks.id"), nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending|instantiated|cancelled
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    instantiated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    __partition__ = ("Account", "account_id")
 
-
-# ---------------------------------------------------------------------------
-# Phase 4: People Tasks — Continuous Compliance (embedded mini-ISMS)
-# ---------------------------------------------------------------------------
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    control_id: str | None = None
+    task_type: str | None = "acknowledge"
+    source_plan_id: str | None = None
+    source_task_id: str | None = None
+    status: str | None = "pending"
+    created_at: datetime | None = field(default_factory=_utcnow)
+    instantiated_at: datetime | None = None
 
 
-class PeopleTask(Base):
+@model
+class PeopleTask:
     """Recurring or one-off continuous compliance task (embedded mini-ISMS)."""
-    __tablename__ = "people_tasks"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    title: Mapped[str] = mapped_column(String(500), nullable=False)
-    description: Mapped[str] = mapped_column(Text, default="")
-    task_type: Mapped[str] = mapped_column(String(30), nullable=False)
-    # attestation | process_check | evidence_submission | policy_ack | training
-    pdca_phase: Mapped[str] = mapped_column(String(10), nullable=False)  # plan | do | check | act
-    article_21_subsection: Mapped[str] = mapped_column(String(5), nullable=False)  # a-j
-    frequency: Mapped[str] = mapped_column(String(20), nullable=False)
-    # one_off | monthly | quarterly | annual
-    next_due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    assignee_user_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("users.id"), nullable=True
-    )
-    assignee_role: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    related_control_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    related_process_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("business_processes.id", ondelete="SET NULL"), nullable=True
-    )
-    related_plan_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("remediation_plans.id", ondelete="SET NULL"), nullable=True
-    )
-    requires_evidence: Mapped[bool] = mapped_column(Boolean, default=False)
-    attestation_statement: Mapped[str | None] = mapped_column(Text, nullable=True)
-    baseline_template_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    isms_domain: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+    __partition__ = ("Account", "account_id")
+    __onupdate__ = ("updated_at",)
 
-    account: Mapped["Account"] = relationship()
-    completions: Mapped[list["PeopleTaskCompletion"]] = relationship(
-        back_populates="people_task", cascade="all, delete-orphan"
-    )
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    title: str | None = None
+    description: str | None = ""
+    task_type: str | None = None
+    pdca_phase: str | None = None
+    article_21_subsection: str | None = None
+    frequency: str | None = None
+    next_due_date: date | None = None
+    assignee_user_id: str | None = None
+    assignee_role: str | None = None
+    related_control_id: str | None = None
+    related_process_id: str | None = None
+    related_plan_id: str | None = None
+    requires_evidence: bool | None = False
+    attestation_statement: str | None = None
+    baseline_template_id: str | None = None
+    isms_domain: str | None = None
+    active: bool | None = True
+    created_at: datetime | None = field(default_factory=_utcnow)
+    updated_at: datetime | None = field(default_factory=_utcnow)
+
+    @property
+    def completions(self) -> list["PeopleTaskCompletion"]:
+        return session_of(self).list(PeopleTaskCompletion, self.id)
 
 
-# ---------------------------------------------------------------------------
-# Phase 5: Reports Archive
-# ---------------------------------------------------------------------------
-
-
-class Report(Base):
+@model
+class Report:
     """Snapshot of a generated compliance report."""
-    __tablename__ = "reports"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    account_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    document_id: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
-    period: Mapped[str] = mapped_column(String(20), nullable=False)  # e.g. "Q2 2026"
-    period_start: Mapped[date] = mapped_column(Date, nullable=False)
-    period_end: Mapped[date] = mapped_column(Date, nullable=False)
-    aggregate_score: Mapped[float] = mapped_column(Float, nullable=False)
-    technical_score: Mapped[float] = mapped_column(Float, nullable=False)
-    human_factor_score: Mapped[float] = mapped_column(Float, nullable=False)
-    grade: Mapped[str] = mapped_column(String(2), nullable=False)
-    maturity_level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    file_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
-    generated_by_user_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("users.id"), nullable=True
-    )
+    __partition__ = ("Account", "account_id")
+    __lookups__ = {"lk_token": "document_id"}
+    __unique__ = ("document_id",)
 
-    account: Mapped["Account"] = relationship()
-    generated_by: Mapped["User | None"] = relationship()
+    id: str | None = field(default_factory=_new_uuid)
+    account_id: str | None = None
+    document_id: str | None = None
+    period: str | None = None
+    period_start: date | None = None
+    period_end: date | None = None
+    aggregate_score: float | None = None
+    technical_score: float | None = None
+    human_factor_score: float | None = None
+    grade: str | None = None
+    maturity_level: int | None = 1
+    file_size_bytes: int | None = 0
+    file_path: str | None = None
+    content_hash: str | None = None
+    generated_at: datetime | None = field(default_factory=_utcnow)
+    generated_by_user_id: str | None = None
 
 
-class PeopleTaskCompletion(Base):
+@model
+class PeopleTaskCompletion:
     """One completion record per user per period for a people task."""
-    __tablename__ = "people_task_completions"
-    __table_args__ = (
-        UniqueConstraint("people_task_id", "user_id", "period_key", name="uq_ptc_task_user_period"),
-    )
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
-    people_task_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("people_tasks.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id"), nullable=False, index=True
-    )
-    period_key: Mapped[str] = mapped_column(String(20), nullable=False)
-    attested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    attestation_response: Mapped[str | None] = mapped_column(Text, nullable=True)
-    evidence_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("evidence.id", ondelete="SET NULL"), nullable=True
-    )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    __partition__ = ("PeopleTask", "people_task_id")
+    __sort__ = ("user_id", "period_key")
 
-    people_task: Mapped["PeopleTask"] = relationship(back_populates="completions")
+    id: str | None = field(default_factory=_new_uuid)
+    people_task_id: str | None = None
+    user_id: str | None = None
+    period_key: str | None = None
+    attested_at: datetime | None = None
+    attestation_response: str | None = None
+    evidence_id: str | None = None
+    created_at: datetime | None = field(default_factory=_utcnow)
+
+
+ALL_MODELS = [Account, User, CloudCredential, AwsAccount, Scan, ScanResult, Assessment, AssessmentVersion, AssessmentResponse, Evidence, RemediationPlan, RemediationPlanMilestone, RemediationPlanLink, RemediationTask, Country, EntityTier, CountryControl, CountryDeadline, CountryAssessmentQuestion, BaseControl, AccountControl, ControlCampaign, CampaignTask, BusinessProcess, ProcessControl, OAuthState, EvidenceLink, AssessmentQuestionControl, AuditLog, PendingPeopleTaskInstantiation, PeopleTask, Report, PeopleTaskCompletion]
