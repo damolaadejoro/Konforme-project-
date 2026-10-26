@@ -82,4 +82,4 @@ jobs:
 
       - name: Smoke test
         run: |
-          curl -fsS --retry 5 --retry-delay 5 --retry-all-errors https://api.konforme.io/health
+          curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "${{ vars.API_URL || 'https://api.konforme.io' }}/health"
