@@ -10,7 +10,6 @@ import pytest
 
 import report_storage
 from config import settings
-from models import Country, CountryAssessmentQuestion, EntityTier
 from store import Session
 
 PASSWORD = "SecurePass123!"
@@ -39,15 +38,6 @@ def api(client, tmp_path, monkeypatch):
     client.account_id = reg["account_id"]
     client.user_id = reg["user_id"]
     return client
-
-
-def _seed_country():
-    db = Session()
-    country = Country(code="DE", name="Germany", transposition_status="transposed")
-    db.add(country)
-    db.add(EntityTier(country_id=country.id, tier_key="essential", local_name="Besonders wichtig"))
-    db.add(CountryAssessmentQuestion(country_id=country.id, question_text="Extra DE question", is_additional=True))
-    db.commit()
 
 
 def test_auth_lifecycle(api):
@@ -98,10 +88,11 @@ def test_accounts_team_and_settings(api):
 
 def test_countries_and_controls(api):
     a = api
-    _seed_country()
-    assert [c["code"] for c in ok(a.get("/api/v1/countries"))] == ["DE"]
+    # Startup seeds every EU country from data/countries/
+    codes = [c["code"] for c in ok(a.get("/api/v1/countries"))]
+    assert len(codes) == 27 and "DE" in codes
     assert ok(a.get("/api/v1/countries/de"))["name"] == "Germany"
-    assert ok(a.get("/api/v1/countries/DE/tiers"))[0]["tierKey"] == "essential"
+    assert "essential" in [t["tierKey"] for t in ok(a.get("/api/v1/countries/DE/tiers"))]
     ok(a.get("/api/v1/countries/DE/assessment"))
     ok(a.put("/api/v1/accounts/country", json={"country_code": "DE", "entity_tier": "essential"}))
     ok(a.put("/api/v1/accounts/country", json={"country_code": "DE", "entity_tier": "nope"}), 422)
@@ -109,7 +100,7 @@ def test_countries_and_controls(api):
     base = ok(a.get("/api/v1/base-controls"))
     assert len(base) == 43
     controls = ok(a.get(f"/api/v1/controls/{a.account_id}"))
-    assert len(controls) == 43  # instantiated from base controls when the country was set
+    assert len(controls) > 43  # base controls plus Germany's own, instantiated when the country was set
     first = controls[0]["controlId"]
 
     # Implemented requires linked evidence

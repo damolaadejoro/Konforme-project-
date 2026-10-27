@@ -163,12 +163,25 @@ def check_production_settings():
 
 
 def bootstrap_database():
-    # Seed base control definitions (idempotent). The table itself is created by Terraform.
+    # Seed reference data (idempotent). The table itself is created by Terraform.
     from scripts.seed_base_controls import seed_base_controls
     from scripts.seed_question_control_mappings import seed_question_control_mappings
+    from scripts.seed_countries import DATA_DIR as COUNTRIES_DIR, seed_country
+    from scripts.seed_country_data import seed_country_data
     with SessionLocal() as db:
         seed_base_controls(db)
         seed_question_control_mappings(db)
+
+    country_files = sorted(f for f in COUNTRIES_DIR.glob("*.json") if f.name != "_index.json")
+    # Countries first: country controls/questions look their country up
+    with SessionLocal() as db:
+        for filepath in country_files:
+            seed_country(db, filepath)
+        db.commit()
+    with SessionLocal() as db:
+        for filepath in country_files:
+            seed_country_data(db, filepath)
+        db.commit()
 
 
 # Not used on Lambda (see lambda_handler.py): there, seeding runs in the migrate
